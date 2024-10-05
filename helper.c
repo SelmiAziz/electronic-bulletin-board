@@ -1,13 +1,48 @@
+#include<unistd.h>
+
+#include<errno.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
 
 #include "helper.h"
 
+
+
 void errFunction(char *err){
 	fprintf(stderr, err); 
 	exit(EXIT_FAILURE); 
 }
+
+int takeArgumentsClient(int argc, char **argv, char **serverAddress, short int *port){
+	int i = 0; 
+	char *endptr; 
+	
+	if(argc != 5)
+	{
+		//magari cambiare per avere un'usciata con EXIT_SUCCESS
+		errFunction("Sintassi: eseguibile a indirizzo p porta"); 
+	}
+	
+	while(i < argc -1)
+	{
+		if(strncmp(argv[i+1], "a", 1) == 0)
+		{
+			*serverAddress = argv[++i+1];
+		}
+		else if(strncmp(argv[i+1], "p",1) == 0)
+		{
+			*port = strtol(argv[++i+1], &endptr, 10); 
+			if(*endptr)
+			{
+				errFunction("Porta non riconosciuta");
+			}
+		}
+		i++; 	
+	}
+	return 0; 
+}
+
 
 //parte delle funzioni che implementerò magari servono al client oppure al server
 int getInput(char *buffer, int maxLen){

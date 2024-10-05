@@ -16,8 +16,9 @@
 #define COMMAND_CLOSE 0x08
 
 
-#define COMMAND_POST_MSG
-
+#define COMMAND_POST_MSG 0x09
+#define COMMAND_VIEW_MSG 0x10
+#define COMMAND_DELETE_MSG 0x11
 
 void clientFunc(int socket); 
 

@@ -15,7 +15,7 @@
 #define TRY 3
 
 #define TIME_OUT 5 
-#define MAX_READ_ATTEMPS 7
+#define MAX_READ_ATTEMPTS 7
 
 #define LISTEN 10
 
@@ -27,7 +27,7 @@
 //i tenativi di quanti farli e meglio averli nel server
 #define COMMAND_ERR_USER_NOT_FOUND    0x04
 #define COMMAND_ERR_NOT_MATCH_CREDENTIALS     0x05
-#define COMMAND_ERR_USERS_ALREADY_EXISTS 0x06
+#define COMMAND_ERR_USER_ALREADY_EXISTS 0x06
 #define COMMAND_SUCCESS    0x07
 #define COMMAND_FAIL 0x08
 
@@ -85,6 +85,7 @@ int checkUserPass(char *user, char *pass){
 			if(strcmp(pass, password) == 0){
 				return 0; 
 			}
+		}
 	}
 	return -1; 
 }
@@ -118,7 +119,7 @@ int readBuff(int socket, char *buff, int len){
 
 int receiveTimeout(int socket){
 	struct timeval timeout; 
-	timeout.v_sec = TIME_OUT; 
+	timeout.tv_sec = TIME_OUT; 
 	timeout.tv_usec = 0; 
 	
 	
@@ -176,11 +177,11 @@ void sub_func(int socket, char *username, char *password){
 		if(ret != MAX_USERNAME){
 			//ho ricevuto meno byte, che faccio? per adesso mi tengo il fail
 			writeCom(socket, COMMAND_FAIL); 
-			goto ruser; 
+			goto rusername; 
 		}
 		if(findUser(head,username)){
 			writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS); 
-			goto ruser; 
+			goto rusername; 
 		}else{
 			writeCom(socket, COMMAND_SUCCESS); 
 		}
@@ -299,7 +300,7 @@ int main(int arcv, char *argv[]){
 	int s_size; //scoprire che roba è questa
 	Element *myElement; 
 	int port = 2500; 
-	char fileUser = "back_users.csv"; 
+	char *fileUsers = "back_users.csv"; 
 	
 	//devo trovare il modo di specificare il file che intendo usare
 	fillUsers(&head, fileUsers); 
@@ -310,10 +311,10 @@ int main(int arcv, char *argv[]){
 	}
 	 
 
-	memset(&server_addr, 0, sizeof(server_addr)); 
-	server_addr.sin_family = AF_INET; 
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); 
-	server_addr.sin_port = htons(port); 
+	memset(&serverAddr, 0, sizeof(serverAddr)); 
+	serverAddr.sin_family = AF_INET; 
+	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY); 
+	serverAddr.sin_port = htons(port); 
 
 	if(bind(listSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0){
 		fprintf(stderr, "Bind error"); 

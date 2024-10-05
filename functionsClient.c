@@ -1,47 +1,14 @@
+#include<unistd.h>
+
+#include<errno.h>
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
 
 
 #include"functionsClient.h"
+#include"helper.h"
 
-
-int parserLine(int argc, char **argv, char **serverAddress, short int *port){
-	int i = 0; 
-	char *endptr; 
-	
-	if(argc != 5)
-	{
-		errFunction("Sintassi: eseguibile a indirizzo p porta", EXIT_SUCCESS); 
-	}
-	
-	while(i < argc -1)
-	{
-		if(strncmp(argv[i+1], "a", 1) == 0)
-		{
-			*serverAddress = argv[++i+1];
-		}
-		else if(strncmp(argv[i+1], "p",1) == 0)
-		{
-			*port = strtol(argv[++i+1], &endptr, 10); 
-			if(*endptr)
-			{
-				errFunction("Porta non riconosciuta", EXIT_FALURE); 
-			}
-		}
-		i++; 	
-	}
-	return 0; 
-}
-
-
-void padBuff(char *buffer, int len, int maxLen){
-	if(len<maxLen)
-	{
-		memset(buffer + len, '\0', maxLen-len); 
-	}
-
-}
 
 void readCom(int socket, char *buff){
 	int ret; 
@@ -70,6 +37,30 @@ void writeCom(int socket, char command){
 }
 
 
+int readBuffSocket(int socket, char *buff, int len){
+    int ret, i;  
+    char c; 
+    for( i = 1; i<len; i++){
+    	ret = read(socket, &c, 1); 
+    	if(ret == 1){
+    		*buff++= c; 
+    		if( c == '\n') break; 
+    	}else{
+    		if(ret == 0){
+    			if(i== 1) return 0; 
+    			else break; 
+    		}else{
+    			if(errno == EINTR) continue; 
+    			return -1; 
+    		}	
+    	}	
+    }
+   *buff = 0; 
+   return i; 
+}
+
+
+
 int writeBuffSocket(int socket, char *buffer, int len)
 {
 	int l,w; 
@@ -82,14 +73,22 @@ int writeBuffSocket(int socket, char *buffer, int len)
 		{
 			if(errno == EINTR) w = 0; 
 			else{
-				errFunction("Errore in scrittura nella socket"); 
+				return -1; 
 			}
 		l -= w; 
 		buffer += w; 
 		
 		}
 	}
-	return 0; 
+	return len; 
+}
+
+void padBuff(char *buffer, int len, int maxLen){
+	if(len<maxLen)
+	{
+		memset(buffer + len, '\0', maxLen-len); 
+	}
+
 }
 
 int checkFormatUsername(char *username)
@@ -99,13 +98,12 @@ int checkFormatUsername(char *username)
 
 }
 
-
 int getValideUsername(char *username)
 {
 	while(1){
 		if(getInput(username, MAX_USERNAME))
 		{
-			errFunction("Errore di lettura username da stdin", EXIT_FAILURE); 
+			errFunction("Errore di lettura username da stdin"); 
 		}
 		if(checkFormatUsername(username) == 0) break;
 		printf("Lunghezza username deve essere >4"); 
@@ -142,9 +140,9 @@ int getValidePassword(char *password){
 	while(1){
 		if(getInput(password, MAX_PASSWORD))
 		{
-			errFunction("Errore di lettura password da stdin", EXIT_FAILURE);
+			errFunction("Errore di lettura password da stdin");
 		}
-		if(chcekFormatPassword(password) == 0) break; 
+		if(checkFormatPassword(password) == 0) break; 
 		printf("Formato password :almeno 8 caratteri tra cui una lettera maiuscola, un numero e un carattere speciale\n"); 
 	}
 }
@@ -163,7 +161,7 @@ int loginFunction(int socket, char *username, char *password){
 		
 		padBuff(username, strlen(username), MAX_USERNAME); 
 		writeBuffSocket(socket, username, MAX_USERNAME); 
-		padBUff(password, strlen(password), MAX_PASSWORD); 
+		padBuff(password, strlen(password), MAX_PASSWORD); 
 		writeBuffSocket(socket, password, MAX_PASSWORD); 
 		
 		readCom(socket, &c); 
@@ -179,7 +177,7 @@ int loginFunction(int socket, char *username, char *password){
 				printf("Credenziali non coerenti, inserire le credenziali correttamente\n"); 
 				break; 
 			default: 
-				errFunc("Errore di comunicazione");
+				errFunction("Errore di comunicazione");
 		
 		}
 		if(c == COMMAND_SUCCESS) break; 
@@ -202,7 +200,7 @@ int subFunction(int socket, char *username, char *password)
 		
 		padBuff(username, strlen(username), MAX_USERNAME); 
 		writeBuffSocket(socket, username, MAX_USERNAME); 
-		padBUff(password, strlen(password), MAX_PASSWORD); 
+		padBuff(password, strlen(password), MAX_PASSWORD); 
 		writeBuffSocket(socket, password, MAX_PASSWORD); 
 		
 		
@@ -228,18 +226,21 @@ int autentication(char *username, char *password, int socket){
 	char buffer[SIZE]; 
 	
 	printf("Scrivere SUB per la registrazione oppure LOG per il login\n"); 
+	printf("NewVersione");
 	while(1){
-		if(getInput(buffer))
+		if(getInput(buffer, SIZE))
 		{
-			errFunc("Lettura da stdin non riuscita"); 
+			errFunction("Lettura da stdin non riuscita"); 
 		}
 		if(strcmp(buffer, "SUB") == 0)
 		{
-			writeBuffSocket(socket, buffer, strlen(buffer));
+			//writeBuffSocket(socket, buffer, strlen(buffer));
+			printf("Ehm"); 
+			fflush(stdout); 
 			subFunction(socket, username, password); 
 		}else if(strcmp(buffer, "LOG") == 0)
 		{
-			writeBuffSocket(socket,buffer, strlen(buffer)); 
+			//writeBuffSocket(socket,buffer, strlen(buffer)); 
 			loginFunction(socket, username, password); 
 		}else{
 			printf("Inserire SUB (per la registrazione) oppure LOG (per il login)...\n");
@@ -247,6 +248,15 @@ int autentication(char *username, char *password, int socket){
 	}
 	return 0; 
 }
+
+int delMessageFunction(int socket)
+{
+
+
+
+
+}
+
 
 int viewMessageFunction(int socket)
 {
@@ -271,6 +281,8 @@ int postMessageFunction(int socket)
 
 
 
+
+
 void clientFunc(int socket)
 {
 	char username[MAX_USERNAME]; 
@@ -291,7 +303,7 @@ void clientFunc(int socket)
 		printf("3:Eliminare un messaggio"); 
 		
 		c = getchar(); 
-		while(getcahr() != '\n'); 
+		while(getchar() != '\n'); 
 		
 		switch(c){
 			case '1': 
@@ -303,8 +315,8 @@ void clientFunc(int socket)
 				viewMessageFunction(socket);
 				break; 
 			case '3': 
-				writeCom(socket, COMMAND_DEL_MSG); 
-				delMessageFucntion(socket); 
+				writeCom(socket, COMMAND_DELETE_MSG); 
+				delMessageFunction(socket); 
 				break; 
 			default: 
 				printf("Opzione del menu non riconosciuta"); 
