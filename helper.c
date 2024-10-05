@@ -4,6 +4,11 @@
 
 #include "helper.h"
 
+void errFunction(char *err){
+	fprintf(stderr, err); 
+	exit(EXIT_FAILURE); 
+}
+
 //parte delle funzioni che implementerò magari servono al client oppure al server
 int getInput(char *buffer, int maxLen){
 	if(fgets(buffer, maxLen, stdin)){

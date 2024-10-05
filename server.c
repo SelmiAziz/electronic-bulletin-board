@@ -113,28 +113,6 @@ int readBuff(int socket, char *buff, int len){
    return i; 
 }
 
-//this snip has to be in the client
-int controlPass(char *password, char *seq){
-	for(int i = 0; i<strlen(password); i++){
-		for(int j = 0; j<strlen(seq); j++){
-			if(password[i] == seq[j]){
-				return 0; 
-			}
-		}
-	}
-	return -1; 
-
-}
-
-//this password has to implemented in the client is stupid to implement it in the user.
-int validatePassword(char *password){
-	if(strlen(password) < 8) return -1; 
-	char *specials = "!#$%^&*()-+_="; 
-	char *num = "1234567890"; 
-	char *alM = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
-	if(controlPass(password, specials) || controlPass(password,num) || controlPass(password, alM)) return -1;
-	return 0; 
-}
 
 
 
