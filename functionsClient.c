@@ -147,7 +147,7 @@ int getValidePassword(char *password){
 	}
 }
 
-int loginFunction(int socket, char *username, char *password){
+int loginFunctionClient(int socket, char *username, char *password){
 	char c; 
 
 	while(1)
@@ -185,7 +185,7 @@ int loginFunction(int socket, char *username, char *password){
 	return 0; 
 }
 
-int subFunction(int socket, char *username, char *password)
+int subFunctionClient(int socket, char *username, char *password)
 {
 	char c; 
 	
@@ -221,7 +221,7 @@ int subFunction(int socket, char *username, char *password)
 	return 0;
 }
 
-int autentication(char *username, char *password, int socket){
+int authFunctionClient(char *username, char *password, int socket){
 	char c; 
 	char buffer[SIZE]; 
 	
@@ -234,15 +234,11 @@ int autentication(char *username, char *password, int socket){
 		}
 		if(strcmp(buffer, "SUB") == 0)
 		{
-			//writeBuffSocket(socket, buffer, strlen(buffer));
-			printf("Ehm"); 
-			fflush(stdout); 
-			subFunction(socket, username, password); 
+			subFunctionClient(socket, username, password); 
+			loginFunctionClient(socket, username, password); 
 		}else if(strcmp(buffer, "LOG") == 0)
 		{
 			//writeBuffSocket(socket,buffer, strlen(buffer)); 
-			loginFunction(socket, username, password); 
-		}else{
 			printf("Inserire SUB (per la registrazione) oppure LOG (per il login)...\n");
 		}
 	}
@@ -291,7 +287,7 @@ void clientFunc(int socket)
 	
 	readCom(socket, &c); 
 	if( c == COMMAND_AUTH ) {
-		autentication(username, password, socket); 
+		authFunctionClient(username, password, socket); 
 	}else{
 		errFunction("Errore di comunicazione"); 
 	}
