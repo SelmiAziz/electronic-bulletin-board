@@ -30,122 +30,124 @@ void writeCom(int socket, char command){
 
 
 
-int readBuff(int socket, char *buff, int len){
-    int ret, i;  
-    char c; 
-    for( i = 1; i<len; i++){
-    	ret = read(socket, &c, 1); 
-    	if(ret == 1){
-    		*buff++= c; 
-    		if( c == '\n') break; 
-    	}else{
-    		if(ret == 0){
-    			if(i== 1) return 0; 
-    			else break; 
-    		}else{
-    			if(errno == EINTR) continue; 
-    			return -1; 
-    		}	
-    	}	
-    }
-   *buff = 0; 
-   return i; 
-}
 
 
-
+//la funzione ritorna -1 errno invariato errore di lettura
+//la funzione ritorna 0 canale chiuso
+//la funzione ritorna -1 errno uguale a EWOULDBLOCK oppure EAGAIN errore di timeout
 int readTimeout(int fd, void *buffer, size_t total_bytes) {
     size_t bytes_read = 0;
     ssize_t result;
     int attempts = 0;
 
-    while (bytes_read < total_bytes && attempts < MAX_READ_ATTEMPTS) {
+    while (bytes_read < total_bytes) {
         result = read(fd, (char *)buffer + bytes_read, total_bytes - bytes_read);
 
         if (result < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                printf("Timeout durante la lettura. Tentativo %d di %d\n", attempts + 1, MAX_READ_ATTEMPTS);
                 attempts++;
-                continue;  // Riprova a leggere
-            } else {
-                perror("Errore durante la lettura"); //qua si potrbbe fa chiudere il server
-                return -1;  // Errore
+                if (attempts == MAX_READ_ATTEMPTS) {
+                    return -1;
+                }
+                continue; 
             }
+            return -1; 
         } else if (result == 0) {
-            // Connessione chiusa
-            printf("Connessione chiusa dal peer\n");
-            return -1;  // Errore
+            return 0; 
         }
 
-        // Aggiungi i byte letti al totale
         bytes_read += result;
-        printf("Bytes letti finora: %zu\n", bytes_read);
     }
 
-    // Se non sono stati letti tutti i byte richiesti
-    if (bytes_read < total_bytes) {
-        printf("Errore: non sono stati letti tutti i byte richiesti. Lettura incompleta: %zu/%zu byte\n", bytes_read, total_bytes);
-        // Se abbiamo raggiunto il numero massimo di tentativi, gestiamo l'errore
-        if (attempts >= MAX_READ_ATTEMPTS) {
-            printf("Numero massimo di tentativi di lettura raggiunto: %d\n", MAX_READ_ATTEMPTS);
-            return -1;  // Errore
-        }
-    }
-
-    return bytes_read == total_bytes ? 0 : -1;  // Restituisce 0 per successo, -1 per errore
+    return bytes_read; 
 }
 
 
-void subFunctionServer(int socket, char *username, char *password){
-	int ret; 
-	rusername:
-		ret = read(socket,username, MAX_USERNAME); 
-		if(ret != MAX_USERNAME){
-			//ho ricevuto meno byte, che faccio? per adesso mi tengo il fail
-			writeCom(socket, COMMAND_FAIL); 
-			goto rusername; 
-		}
-		if(findUser(head,username)){
-			writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS); 
-			goto rusername; 
-		}else{
-			writeCom(socket, COMMAND_SUCCESS); 
-		}
-	rpassword:
-		ret = readBuff(socket, password, MAX_PASSWORD); 
-		if(ret != MAX_PASSWORD){
-			writeCom(socket, COMMAND_FAIL); 
-			goto rpassword; 
-		} 
-		addUser(&head,username, password); 
-		wrUser(username, password, "back_users.csv"); 
+int subFunctionServer(int socket, char *username, char *password) {
+    int ret; 
+    while (1) {
+        ret = readTimeout(socket, username, password); 
+        if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
+            writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
+            close(socket);
+            pthread_exit(NULL); 
+        }
+        if (ret == -1) {
+            writeCom(socket, COMMAND_CLOSE); 
+            close(socket);
+            pthread_exit(NULL); 
+        }
+
+        ret = readBuff(socket, password, MAX_PASSWORD); 
+        if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
+            writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
+            close(socket);
+            pthread_exit(NULL); 
+        }
+        if (ret == -1) {
+            writeCom(socket, COMMAND_CLOSE); 
+            close(socket);
+            pthread_exit(NULL); 
+        }
+
+        if (findUser(head, username)) {
+            writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS);
+        } else {
+            writeCom(socket, COMMAND_SUCCESS);
+            break;
+        }
+    }
+
+    addUser(&head, username, password); 
+    wrUser(username, password, "back_users.csv"); 
+    return 0; 
 }
 
 
 void logFunctionServer(int socket, char *username, char *password){
+	
 	int ret;  
-	rusername:
+	while(1){
 		ret = readBuff(socket, username, MAX_USERNAME); 
-		if(ret != MAX_USERNAME){
-			writeCom(socket, COMMAND_FAIL); 
-			goto rusername; 
-		}
+		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+		{
+    		writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
+        close(socket);
+        pthread_exit(NULL); 
+    }
+    if (ret == -1) 
+    {
+			writeCom(socket, COMMAND_CLOSE); 
+      close(socket);
+      pthread_exit(NULL); 
+    }
+		ret = readBuff(socket, password, MAX_PASSWORD); 
+		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+		{
+    		writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
+        close(socket);
+        pthread_exit(NULL); 
+    }
+    if (ret == -1) 
+    {
+			writeCom(socket, COMMAND_CLOSE); 
+      close(socket);
+      pthread_exit(NULL); 
+    }
+		
 		if(!findUser(head,username)){
 			writeCom(socket,COMMAND_ERR_USER_NOT_FOUND); 
-			goto rusername;
+			continue; 
 		}else{
 			writeCom(socket,COMMAND_SUCCESS); 
-		}
-	rpassword:
-		ret = readBuff(socket, password, MAX_PASSWORD); 
-		if(ret != MAX_PASSWORD){
-			writeCom(socket, COMMAND_FAIL); 
-			goto rpassword; 
+			break; 
 		}
 		if(checkUserPass(username, password)){
 			writeCom(socket, COMMAND_ERR_NOT_MATCH_CREDENTIALS); 
-			goto rusername; 
+		}else{
+			break; 
 		}
+	}
 }
 
 

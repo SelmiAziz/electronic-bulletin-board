@@ -236,9 +236,12 @@ int authFunctionClient(char *username, char *password, int socket){
 		{
 			subFunctionClient(socket, username, password); 
 			loginFunctionClient(socket, username, password); 
+			break; 
 		}else if(strcmp(buffer, "LOG") == 0)
 		{
-			//writeBuffSocket(socket,buffer, strlen(buffer)); 
+			loginFunctionClient(socket, username, password); 
+			break; 
+		}else{
 			printf("Inserire SUB (per la registrazione) oppure LOG (per il login)...\n");
 		}
 	}
