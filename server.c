@@ -62,11 +62,11 @@ int main(int arcv, char *argv[]){
 	
 	while(1){
 		if((connSocket = accept(listSocket, (struct sockaddr *)&clientAddr, &s_size))< 0){
-			errFuntion("Errore in accpet"); 
+			errFunction("Errore in accpet"); 
 		}	
 		
-		myElement = malloc(sizeof(myElement)); 
-		if(myElement == NULL){
+		tData = malloc(sizeof(tData)); 
+		if(tData == NULL){
 			errFunction("Errore in malloc"); 
 		}
 		
@@ -78,7 +78,7 @@ int main(int arcv, char *argv[]){
 		tData->head = head; 
 		
 		//servirebbe prima fare una sorta di detach modificando gli attributi del thread
-		if(pthread_create(&pid, NULL, worker, (void*)myElement)){
+		if(pthread_create(&pid, NULL, worker, (void*)tData)){
 			errFunction("Errore nella creazione del thread"); 
 		}	
 		

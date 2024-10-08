@@ -90,7 +90,7 @@ void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, int *v) {
 
 //write file for message and for user
 
-void wrUser(char *buffUser, char *buffPassword, char *file){
+int wrUser(char *buffUser, char *buffPassword, char *file){
 	char buff[1024]; 
 	FILE *myFile = fopen(file, "a"); 
 	if(myFile == NULL){
@@ -100,6 +100,12 @@ void wrUser(char *buffUser, char *buffPassword, char *file){
 	sprintf(buff, "\"%s\",\"%s\"\n", buffUser, buffPassword); 
 	fprintf(myFile, "%s", buff); 
 	fclose(myFile); 
+	return 0; 
+}
+
+int checkUserPass(char *username, char *password, char *file)
+{
+	return 0; 
 }
 
 //passandola sotto va a scrive direttamente cercare di fare delle modifiche

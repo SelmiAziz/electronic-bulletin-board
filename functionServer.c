@@ -1,9 +1,14 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+#include<errno.h>
 
-#include "messageLib.h"
-#include "functionServer.h"
+#include<pthread.h>
+#include <unistd.h>   
+
+#include"functionServer.h"
+#include"helper.h"
+
 
 
 void readCom(int socket, char *buff){
@@ -63,10 +68,10 @@ int readTimeout(int fd, void *buffer, size_t total_bytes) {
 }
 
 
-int subFunctionServer(int socket, char *username, char *password) {
+int subFunctionServer(int socket, User *head, char *username, char *password) {
     int ret; 
     while (1) {
-        ret = readTimeout(socket, username, password); 
+        ret = readTimeout(socket, username,MAX_USERNAME); 
         if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
             writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
             close(socket);
@@ -78,7 +83,7 @@ int subFunctionServer(int socket, char *username, char *password) {
             pthread_exit(NULL); 
         }
 
-        ret = readBuff(socket, password, MAX_PASSWORD); 
+        ret = readTimeout(socket, password, MAX_PASSWORD); 
         if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
             writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
             close(socket);
@@ -104,11 +109,11 @@ int subFunctionServer(int socket, char *username, char *password) {
 }
 
 
-void logFunctionServer(int socket, char *username, char *password){
+int logFunctionServer(int socket, User *head, char *username, char *password){
 	
 	int ret;  
 	while(1){
-		ret = readBuff(socket, username, MAX_USERNAME); 
+		ret = readTimeout(socket, username, MAX_USERNAME); 
 		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
 		{
     		writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
@@ -121,7 +126,7 @@ void logFunctionServer(int socket, char *username, char *password){
       close(socket);
       pthread_exit(NULL); 
     }
-		ret = readBuff(socket, password, MAX_PASSWORD); 
+		ret = readTimeout(socket, password, MAX_PASSWORD); 
 		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
 		{
     		writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
@@ -142,18 +147,19 @@ void logFunctionServer(int socket, char *username, char *password){
 			writeCom(socket,COMMAND_SUCCESS); 
 			break; 
 		}
-		if(checkUserPass(username, password)){
+		if(checkUserPass(username, password, "back_users.csv")){
 			writeCom(socket, COMMAND_ERR_NOT_MATCH_CREDENTIALS); 
 		}else{
 			break; 
 		}
 	}
+	return 0; 
 }
 
 
 
 
-void authFuncServer(int socket, char *username, char *password){	
+int authFuncServer(int socket, User *head, char *username, char *password){	
 	char c; 
 	//meglio così che è brutto che il client inizi a manda roba a valanga
 	//ci sarebbe da cambiare tutte le funzioni devono essere delle int
@@ -162,27 +168,28 @@ void authFuncServer(int socket, char *username, char *password){
 	readCom(socket, &c); 
 	//non dovrebbe mandare qulcosa per dire al client che è andato a buon fine il tutto ?
 	if( c == COMMAND_SUB){
-			subFuntionServer(socket, username, password); 
-			logFunctionServer(socket, username, password); 
+			subFunctionServer(socket, head, username, password); 
+			logFunctionServer(socket, head, username, password); 
 	}else if( c == COMMAND_LOG){
-			logFunctionServer(socket, username, password); 
+			logFunctionServer(socket, head, username, password); 
 	}else{
 		//mi hai mandato roba che non era vera
 		writeCom(socket, COMMAND_CLOSE); 
 	}
+	return 0; 
 }
 
 void *worker(void *arg){
-	Element *tData = (ThreadData*) arg; 
+	ThreadData *tData = (ThreadData*) arg; 
 	char username[MAX_USERNAME]; 
 	char password[MAX_PASSWORD]; 
 	char c; 
 	int socket = tData->socket; 
-	Head *head = tData->head;
+	User *head = tData->head;
 	
 	free(tData); 
 	tData == NULL; 
-	authFuncServer(socket, username, password);
+	authFuncServer(socket, head, username, password);
 	  //ulima interezione la da il server
 	readCom(socket, &c); 
 	
@@ -214,7 +221,7 @@ void *worker(void *arg){
 				//elminato mando un success
 			break; 
 			default: 
-				writeCom(socket, COMMAND_FAIL); 
+				writeCom(socket, COMMAND_CLOSE); 
 		
 		}	
 	}

@@ -1,8 +1,6 @@
-default: 
-	gcc client.c -o cliento
-main: 
-	gcc helper.c messageLib.c main.c -o prova
-	./prova
-server: 
-	gcc helper.c messageLib.c server.c -o server
-	./server
+client: 
+	gcc helper.c functionsClient.c client.c -o myClient
+	./myClient
+server:
+	gcc helper.c messageLib.c functionServer.c server.c -o myServer
+	./myServer
