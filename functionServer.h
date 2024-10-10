@@ -4,7 +4,7 @@
 #include "messageLib.h"
 
 #define TRY 3
-#define TIME_OUT 5 
+#define TIME_OUT 200
 #define MAX_READ_ATTEMPTS 7
 #define LISTEN 10
 #define SIZE 1024
