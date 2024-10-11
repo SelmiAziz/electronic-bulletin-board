@@ -67,12 +67,18 @@ int readTimeout(int fd, void *buffer, size_t total_bytes) {
     return bytes_read; 
 }
 
+void unpadding(char *buff, int len){
+	for(int i = strlen(buff)-1; i>0; i--){
+		if(buff[i] != ' ') break; 
+		buff[i] = '\0'; 
+	}
+
+}
 
 int subFunctionServer(int socket, User *head, char *username, char *password) {
     int ret; 
     while (1) {
-       //ret = readTimeout(socket, username,MAX_USERNAME); 
-       ret = read(socket, username, 64); 
+       ret = readTimeout(socket, username,MAX_USERNAME); 
         if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
             writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
             close(socket);
@@ -83,12 +89,10 @@ int subFunctionServer(int socket, User *head, char *username, char *password) {
             close(socket);
             pthread_exit(NULL); 
         }
-    	username[MAX_USERNAME] = 0; 
-    	printf("HO letto %s\n", username); 
-    	fflush(stdout); 
+    	username[MAX_USERNAME] = 0;
+    	unpadding(username,strlen(username)); 
     	
-        //ret = readTimeout(socket, password, MAX_PASSWORD); 
-        ret = read(socket, password, 64); 
+        ret = readTimeout(socket, password, MAX_PASSWORD); 
         if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
             writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
             close(socket);
@@ -100,8 +104,8 @@ int subFunctionServer(int socket, User *head, char *username, char *password) {
             pthread_exit(NULL); 
         }
         password[MAX_PASSWORD] = 0;
-        printf("Ho lettHUuhuhuo %d %s\n",strlen(password), password); 
-        fflush(stdout);  
+        unpadding(password, strlen(password)); 
+
         if (findUser(head, username)) {
             writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS);
         } else {
@@ -109,8 +113,6 @@ int subFunctionServer(int socket, User *head, char *username, char *password) {
             break;
         }
     }
-	printf("HO letto le parole %s %s U.U\n", username, password); 
-	fflush(stdout); 
     addUser(&head, username, password); 
     wrUser(username, password, "back_users.csv"); 
     return 0; 
@@ -176,13 +178,9 @@ int authFuncServer(int socket, User *head, char *username, char *password){
 	readCom(socket, &c); 
 	//non dovrebbe mandare qulcosa per dire al client che è andato a buon fine il tutto ?
 	if( c == COMMAND_SUB){
-			printf("Ha chiesto sub\n"); 
-			fflush(stdout); 
 			subFunctionServer(socket, head, username, password); 
 			logFunctionServer(socket, head, username, password); 
 	}else if( c == COMMAND_LOG){
-			printf("Ha chiesto log\n"); 
-			fflush(stdout); 
 			logFunctionServer(socket, head, username, password); 
 	}else{
 		//mi hai mandato roba che non era vera
@@ -193,8 +191,8 @@ int authFuncServer(int socket, User *head, char *username, char *password){
 
 void *worker(void *arg){
 	ThreadData *tData = (ThreadData*) arg; 
-	char username[MAX_USERNAME]; 
-	char password[MAX_PASSWORD]; 
+	char username[MAX_USERNAME+1]; 
+	char password[MAX_PASSWORD+1]; 
 	char c; 
 	int socket = tData->socket; 
 	User *head = tData->head;

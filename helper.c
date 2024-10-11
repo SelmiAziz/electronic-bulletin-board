@@ -62,7 +62,6 @@ void fill(char *l, char *buffUser, char *buffPass){
 	token = strtok(NULL, "\","); 
 	strncpy(buffPass, token, strlen(token)); 
 	buffPass[strlen(token)] = 0; 
-	printf("Finisih fill\n"); 
 }
 
 void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, int *v) {

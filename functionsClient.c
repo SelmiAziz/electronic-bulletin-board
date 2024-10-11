@@ -86,11 +86,9 @@ int writeBuffSocket(int socket, char *buffer, int len)
 void padBuff(char *buffer, int len, int maxLen){
 	if(len<maxLen)
 	{
-		memset(buffer + len, 'a', maxLen-len); 
+		memset(buffer + len, ' ', maxLen-len); 
 	}
 	buffer[maxLen-1] = '\0'; 
-	printf("Paddingato\n"); 
-	fflush(stdout); 
 }
 
 int checkFormatUsername(char *username)
@@ -127,10 +125,9 @@ int controlPass(char *password, char *seq){
 
 }
 int checkFormatPassword(char *password){
-	char *specials = "!#$%^&*()-+_="; 
+	char *specials = "!?#$%^&*()-+_="; 
 	char *num = "1234567890"; 
 	char *alM = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
-	return 0; 
 	if(strlen(password) < 8) return -1; 
 	if(controlPass(password, specials) || controlPass(password,num) || controlPass(password, alM)) return -1;
 	return 0; 
@@ -163,9 +160,11 @@ int loginFunctionClient(int socket, char *username, char *password){
 		printf("Inserisci password\n"); 
 		getValidePassword(password); 
 		padBuff(username, strlen(username), MAX_USERNAME); 
-		writeBuffSocket(socket, username, MAX_USERNAME); 
+		//writeBuffSocket(socket, username, MAX_USERNAME); 
+		write(socket, username, strlen(username)); 
 		padBuff(password, strlen(password), MAX_PASSWORD); 
-		writeBuffSocket(socket, password, MAX_PASSWORD); 
+		//writeBuffSocket(socket, password, MAX_PASSWORD);
+		write(socket, password, strlen(password));  
 		readCom(socket, &c); 
 		
 		switch(c){
@@ -201,24 +200,14 @@ int subFunctionClient(int socket, char *username, char *password)
 		getValidePassword(password); 
 		
  
-			printf("Ho scritto %s %s\n", username, password); 
-		fflush(stdout); 
-		padBuff(username, strlen(username), MAX_USERNAME);
-		printf("numero 1\n"); 
-		fflush(stdout);  
-		//writeBuffSocket(socket, username, MAX_USERNAME);
-		//write(socket, username, MAX_USERNAME); 
-		printf("numero 2\n"); 
-		fflush(stdout); 
-		//padBuff(password, strlen(password), MAX_PASSWORD); 
-		printf("Hohohoh %sio\n", password); 
-		fflush(stdout);
-		printf("numero 3\n"); 
-		fflush(stdout); 
-		//writeBuffSocket(socket, password, MAX_PASSWORD); 
+		padBuff(username, strlen(username), MAX_USERNAME+1);
+		//writeBuffSocket(socket, username, MAX_USERNAME); 
 		write(socket, username, MAX_USERNAME); 
-		printf("numero 4\n"); 
-		fflush(stdout); 
+		padBuff(password, strlen(password), MAX_PASSWORD+1);
+        password[MAX_PASSWORD+1] = 0; 
+		//writeBuffSocket(socket, password, MAX_PASSWORD); 
+		write(socket, password, MAX_PASSWORD); 
+
 		readCom(socket, &c); 
 		
 		switch(c){
@@ -241,7 +230,6 @@ int authFunctionClient(char *username, char *password, int socket){
 	char buffer[SIZE]; 
 	
 	printf("Scrivere SUB per la registrazione oppure LOG per il login\n"); 
-	printf("NewVersione");
 	while(1){
 		if(getInput(buffer, SIZE))
 		{
@@ -301,8 +289,8 @@ int postMessageFunction(int socket)
 
 void clientFunc(int socket)
 {
-	char username[MAX_USERNAME]; 
-	char password[MAX_PASSWORD];
+	char username[MAX_USERNAME+1]; 
+	char password[MAX_PASSWORD+1];
 	char c;  
 	
 	readCom(socket, &c); 
