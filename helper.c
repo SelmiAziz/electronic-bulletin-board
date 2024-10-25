@@ -102,10 +102,6 @@ int wrUser(char *buffUser, char *buffPassword, char *file){
 	return 0; 
 }
 
-int checkUserPass(char *username, char *password, char *file)
-{
-	return 0; 
-}
 
 //passandola sotto va a scrive direttamente cercare di fare delle modifiche
 void wrMessage(char*buffUser, char *buffObj, char *buffText, char *file){

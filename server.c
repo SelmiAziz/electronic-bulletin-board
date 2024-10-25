@@ -29,7 +29,7 @@ int main(int arcv, char *argv[]){
 	int listSocket; 
 	int connSocket; 
 	struct sockaddr_in serverAddr; 
-	struct sockaddr_in clientAddr; 
+	struct sockaddr_in clientAddr;  
 	pthread_t pid; 
 	int s_size; //scoprire che roba è questa
 	ThreadData *tData; 

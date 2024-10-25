@@ -35,6 +35,7 @@ User *createUser(char *username, char *password){
 		fprintf(stderr, "Error in malloc occured!"); 
 		exit(EXIT_FAILURE); 
 	}
+
 	strncpy(myUser->username, username, strlen(username)); 
 	myUser->username[strlen(username)] = 0; 
 	strncpy(myUser->password, password, strlen(password)); 
@@ -140,8 +141,8 @@ void printUserMessage(User *head, char *username){
 
 //this stuff is awful i know
 void fillUsers(User **head, char *file){
-	char buffUser[MAX_USERNAME]; 
-	char buffPass[MAX_PASSWORD]; 
+	char buffUser[SIZE_USERNAME]; 
+	char buffPass[SIZE_PASSWORD]; 
 	char buff[1024]; 
 	FILE *myFile = fopen(file, "r"); 
 	if(myFile == NULL){
@@ -150,13 +151,19 @@ void fillUsers(User **head, char *file){
 	
 	}
 	while(fgets(buff, 1024, myFile)){
-		fill(buff,buffUser, buffPass); 
+		fill(buff,buffUser, buffPass);
 		addUser(head, buffUser, buffPass); 
-	}
-	printf("Finito\n"); 
+	} 
 	fflush(stdout); 
-
 } 
+int checkUserPass(User *head, char *username, char *password){
+	while(head){
+		fflush(stdout); 
+		if( strcmp(head->username, username) == 0 && strcmp(head->password, password) == 0) return 0; 
+		head = head ->next; 
+	}
+	return -1; 
+}
 
 void visualizeUsers(User *head){
 	while(head){
@@ -178,7 +185,6 @@ void fillMessagesUsers(User *head, char *file){
  	
  	}
 	while(fgets(buff, 1024, myFile)){
-		printf("HO ottenuto %s\n", buff); 
 		fillMsg(buff, buffUser, buffObj, buffText, &v); 
 		if(v!= 0){
 			addMessageUser(head, buffUser, buffObj, buffText); 

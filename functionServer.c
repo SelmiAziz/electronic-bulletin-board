@@ -75,10 +75,27 @@ void unpadding(char *buff, int len){
 
 }
 
+
+void extractAuthMessage(char *s, char *username, char *password) {
+    int i, l = 0; 
+    for(i = 0; i < SIZE_USERNAME && s[i] != ' '; i++) {
+        username[i] = s[i]; 
+    }
+    username[i] = '\0'; 
+    
+  	for(i = SIZE_USERNAME +1; s[i] != ' ' && s[i] != '\0' ; i++){
+ 		password[l] = s[i]; 
+ 		l++; 
+  	}
+  	password[l] = '\0'; 
+}
+
 int subFunctionServer(int socket, User *head, char *username, char *password) {
     int ret; 
+    char authMessage[SIZE_AUTH_MESSAGE]; 
+    
     while (1) {
-       ret = readTimeout(socket, username,MAX_USERNAME); 
+       ret = readTimeout(socket, authMessage, SIZE_AUTH_MESSAGE); 
         if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
             writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
             close(socket);
@@ -89,23 +106,9 @@ int subFunctionServer(int socket, User *head, char *username, char *password) {
             close(socket);
             pthread_exit(NULL); 
         }
-    	username[MAX_USERNAME] = 0;
-    	unpadding(username,strlen(username)); 
-    	
-        ret = readTimeout(socket, password, MAX_PASSWORD); 
-        if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
-            writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
-            close(socket);
-            pthread_exit(NULL); 
-        }
-        if (ret == -1) {
-            writeCom(socket, COMMAND_CLOSE); 
-            close(socket);
-            pthread_exit(NULL); 
-        }
-        password[MAX_PASSWORD] = 0;
-        unpadding(password, strlen(password)); 
-
+        
+    	extractAuthMessage(authMessage, username, password); 
+   
         if (findUser(head, username)) {
             writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS);
         } else {
@@ -120,46 +123,35 @@ int subFunctionServer(int socket, User *head, char *username, char *password) {
 
 
 int logFunctionServer(int socket, User *head, char *username, char *password){
-	
+	char authMessage[SIZE_AUTH_MESSAGE]; 
 	int ret;  
+	
 	while(1){
-		ret = readTimeout(socket, username, MAX_USERNAME); 
+		ret = readTimeout(socket, authMessage, SIZE_AUTH_MESSAGE); 
 		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
 		{
     		writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
-        close(socket);
-        pthread_exit(NULL); 
-		}
-		if (ret == -1) 
-		{
-		  writeCom(socket, COMMAND_CLOSE); 
-		  close(socket);
-		  pthread_exit(NULL); 
-		}
-		ret = readTimeout(socket, password, MAX_PASSWORD); 
-		if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
-			{
-			writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
-		    close(socket);
-		    pthread_exit(NULL); 
+        	close(socket);
+       		pthread_exit(NULL); 
 		}
 		if (ret == -1) 
 		{
 			writeCom(socket, COMMAND_CLOSE); 
-		  close(socket);
-		  pthread_exit(NULL); 
+		  	close(socket);
+		  	pthread_exit(NULL); 
 		}
-			
-		if(!findUser(head,username)){
+
+	
+		extractAuthMessage(authMessage, username, password); 
+		
+		if(findUser(head,username) == NULL){
 			writeCom(socket,COMMAND_ERR_USER_NOT_FOUND); 
 			continue; 
-		}else{
-			writeCom(socket,COMMAND_SUCCESS); 
-			break; 
 		}
-		if(checkUserPass(username, password, "back_users.csv")){
+		if(checkUserPass(head, username, password)){
 			writeCom(socket, COMMAND_ERR_NOT_MATCH_CREDENTIALS); 
 		}else{
+			writeCom(socket,COMMAND_SUCCESS); 
 			break; 
 		}
 	}
@@ -174,6 +166,8 @@ int authFuncServer(int socket, User *head, char *username, char *password){
 	//meglio così che è brutto che il client inizi a manda roba a valanga
 	//ci sarebbe da cambiare tutte le funzioni devono essere delle int
 	writeCom(socket, COMMAND_AUTH);
+	printf("HO mandato un FRA\n"); 
+	fflush(stdout); 
 	int ret ;  
 	readCom(socket, &c); 
 	//non dovrebbe mandare qulcosa per dire al client che è andato a buon fine il tutto ?
@@ -191,8 +185,8 @@ int authFuncServer(int socket, User *head, char *username, char *password){
 
 void *worker(void *arg){
 	ThreadData *tData = (ThreadData*) arg; 
-	char username[MAX_USERNAME+1]; 
-	char password[MAX_PASSWORD+1]; 
+	char username[SIZE_USERNAME+1]; 
+	char password[SIZE_PASSWORD+1]; 
 	char c; 
 	int socket = tData->socket; 
 	User *head = tData->head;
@@ -200,15 +194,15 @@ void *worker(void *arg){
 	free(tData); 
 	tData == NULL; 
 	authFuncServer(socket, head, username, password);
-	  //ulima interezione la da il server
-	readCom(socket, &c); 
-	
-	//core 
 	
 	while(1){
 		readCom(socket, &c);
 		switch(c){
-			//case COMMAND_VIEW_MSG: 
+			case COMMAND_QUIT: 
+				pthread_exit(NULL); 
+			break; 
+		
+			case COMMAND_VIEW_MSG: 
 			//funzione che manda tutti gli oggetti
 			//dopo manda un COMMAND_SUCCESS oppure prima mando il numero (come lo esprimo il numero scusa oppure mando mando fin quando alla fine mando success per dire che ho finito)
 			//ma se gli manda le stringhe che rappresentano i messaggi e i testi come fa a tenerli dentro il sistema il client, costruisce una struttura oppure printa tutto al volo?
@@ -217,13 +211,13 @@ void *worker(void *arg){
 		
 			//posso chiedere più volte di vedere un messaggio	
 			break; 
-			//case COMMAND_POST_MSG: 
+			case COMMAND_POST_MSG: 
 				//attendo n byte per il oggetto del messaggio
 				//attendo m byte per il testo messaggio
 				//mand un success
 				
 			break; 
-			//case COMMAND_DELETE_MSG: 
+			case COMMAND_DELETE_MSG: 
 				//ricevo una stringa che indica id-messaggio
 				//lo elmino subito oppure aspetto per eliminarlo ?
 				//faccio cancellazione in base all'username

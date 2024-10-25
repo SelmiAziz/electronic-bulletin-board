@@ -101,7 +101,7 @@ int checkFormatUsername(char *username)
 int getValideUsername(char *username)
 {
 	while(1){
-		if(getInput(username, MAX_USERNAME))
+		if(getInput(username, SIZE_USERNAME))
 		{
 			errFunction("Errore di lettura username da stdin"); 
 		}
@@ -135,9 +135,18 @@ int checkFormatPassword(char *password){
 
 }
 
+void buildAuthMessage(char *authMessage, char *username, char *password)
+{
+	sprintf(authMessage, "%s %s", username, password); 
+	authMessage[SIZE_AUTH_MESSAGE] = 0; 
+}
+
+
+
+
 int getValidePassword(char *password){
 	while(1){
-		if(getInput(password, MAX_PASSWORD))
+		if(getInput(password, SIZE_PASSWORD))
 		{
 			errFunction("Errore di lettura password da stdin");
 		}
@@ -150,6 +159,7 @@ int getValidePassword(char *password){
 
 int loginFunctionClient(int socket, char *username, char *password){
 	char c; 
+	char authMessage[SIZE_AUTH_MESSAGE]; 
 
 	while(1)
 	{
@@ -159,12 +169,17 @@ int loginFunctionClient(int socket, char *username, char *password){
 		
 		printf("Inserisci password\n"); 
 		getValidePassword(password); 
-		padBuff(username, strlen(username), MAX_USERNAME); 
-		//writeBuffSocket(socket, username, MAX_USERNAME); 
-		write(socket, username, strlen(username)); 
-		padBuff(password, strlen(password), MAX_PASSWORD); 
-		//writeBuffSocket(socket, password, MAX_PASSWORD);
-		write(socket, password, strlen(password));  
+		
+		
+		padBuff(username, strlen(username), SIZE_USERNAME+1); 
+		padBuff(password, strlen(password), SIZE_PASSWORD+1); 
+		
+		
+		buildAuthMessage(authMessage, username, password); 
+   		
+   		//sviluppare una write che funzioni
+   		write(socket, authMessage, sizeof(authMessage)); 
+	 
 		readCom(socket, &c); 
 		
 		switch(c){
@@ -189,6 +204,8 @@ int loginFunctionClient(int socket, char *username, char *password){
 int subFunctionClient(int socket, char *username, char *password)
 {
 	char c; 
+	//ma uuna macro che è data dalla somma di due macro oh idea buona e sembra funzionare
+	char authMessage[SIZE_AUTH_MESSAGE]; 
 	
 	while(1)
 	{
@@ -200,14 +217,14 @@ int subFunctionClient(int socket, char *username, char *password)
 		getValidePassword(password); 
 		
  
-		padBuff(username, strlen(username), MAX_USERNAME+1);
-		//writeBuffSocket(socket, username, MAX_USERNAME); 
-		write(socket, username, MAX_USERNAME); 
-		padBuff(password, strlen(password), MAX_PASSWORD+1);
-        password[MAX_PASSWORD+1] = 0; 
-		//writeBuffSocket(socket, password, MAX_PASSWORD); 
-		write(socket, password, MAX_PASSWORD); 
-
+		padBuff(username, strlen(username), SIZE_USERNAME+1);
+		padBuff(password, strlen(password), SIZE_PASSWORD+1);
+   
+   		buildAuthMessage(authMessage, username, password); 
+   		
+   		//sviluppare una write che funzioni
+   		write(socket, authMessage, sizeof(authMessage)); 
+   		
 		readCom(socket, &c); 
 		
 		switch(c){
@@ -289,8 +306,8 @@ int postMessageFunction(int socket)
 
 void clientFunc(int socket)
 {
-	char username[MAX_USERNAME+1]; 
-	char password[MAX_PASSWORD+1];
+	char username[SIZE_USERNAME+1]; 
+	char password[SIZE_PASSWORD+1];
 	char c;  
 	
 	readCom(socket, &c); 
@@ -302,10 +319,10 @@ void clientFunc(int socket)
 	
 	while(1){
 		printf("Menu\n"); 
-		printf("1:Inserire un nuovo messaggio"); 
-		printf("2:Visualizzare tutti i messaggi"); 
-		printf("3:Eliminare un messaggio"); 
-		
+		printf("1:Inserire un nuovo messaggio\n"); 
+		printf("2:Visualizzare tutti i messaggi\n"); 
+		printf("3:Eliminare un messaggio\n"); 
+		printf("4:Quit\n"); 
 		c = getchar(); 
 		while(getchar() != '\n'); 
 		
@@ -322,6 +339,9 @@ void clientFunc(int socket)
 				writeCom(socket, COMMAND_DELETE_MSG); 
 				delMessageFunction(socket); 
 				break; 
+			case '4': 
+				writeCom(socket, COMMAND_QUIT); 
+				exit(EXIT_SUCCESS); 
 			default: 
 				printf("Opzione del menu non riconosciuta"); 
 		}

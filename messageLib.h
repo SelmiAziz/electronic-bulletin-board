@@ -3,9 +3,13 @@
 
 #define MAX_OBJECT 64
 #define MAX_TEXT 160
-#define MAX_USERNAME 64
-#define MAX_PASSWORD 64
+
+#define SIZE_USERNAME 64
+#define SIZE_PASSWORD 64
+
 #define MAX_IDMESSAGE 24
+
+
 
 typedef struct message {
     char object[MAX_OBJECT]; 
@@ -15,8 +19,8 @@ typedef struct message {
 } Message; 
 
 typedef struct user {
-    char username[MAX_USERNAME]; 
-    char password[MAX_PASSWORD]; 
+    char username[SIZE_USERNAME]; 
+    char password[SIZE_PASSWORD]; 
     int count; 
     Message **messages; 
     struct user *next; 
@@ -33,6 +37,7 @@ void delMessageByIndex(User *myUser, int index);
 User *findUser(User *head, char *username); 
 int delMessageUser(User *head, char *username, char *object); 
 void printUserMessage(User *head, char *username); 
+int checkUserPass(User *head, char *password, char *username); 
 void fillUsers(User **head, char *file); 
 void visualizeUsers(User *head); 
 void fillMessagesUsers(User *head, char *file); 
