@@ -1,20 +1,20 @@
 #ifndef MESSAGE_LIB_H
 #define MESSAGE_LIB_H
 
-#define MAX_OBJECT 64
-#define MAX_TEXT 160
+#define SIZE_OBJECT 64
+#define SIZE_TEXT 160
+#define SIZE_MESSAGE_ID 2
 
 #define SIZE_USERNAME 64
 #define SIZE_PASSWORD 64
 
-#define MAX_IDMESSAGE 24
 
 
 
 typedef struct message {
-    char object[MAX_OBJECT]; 
-    char text[MAX_TEXT]; 
-    char idMessage[MAX_IDMESSAGE];
+    char object[SIZE_OBJECT]; 
+    char text[SIZE_TEXT]; 
+    char idMessage[SIZE_MESSAGE_ID];
     int value; 
 } Message; 
 

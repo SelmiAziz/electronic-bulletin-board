@@ -10,30 +10,12 @@
 #include"helper.h"
 
 
-void readCom(int socket, char *buff){
-	int ret; 
-	ret = read(socket, buff, 1); 
-	
-	if(ret == 0)
-	{
-		fprintf(stderr, "connessione chiusa peer\n"); 
-		exit(EXIT_FAILURE); 
-	}
-	if(ret == -1)
-	{
-		fprintf(stderr,"errore in lettura\n"); 
-		exit(EXIT_FAILURE); 
-	}
+int readCom(int socket, char *command){
+	return read(socket, command, 1); 
 }
 
-void writeCom(int socket, char command){
-	int ret; 
-	ret = write(socket, &command, 1); 
-	if(ret == -1) 
-	{
-		fprintf(stderr, "errore di scrittura\n"); 
-		exit(EXIT_FAILURE); 
-	}
+int writeCom(int socket, char command){
+	return write(socket, &command, 1); 
 }
 
 
@@ -60,7 +42,7 @@ int readBuffSocket(int socket, char *buff, int len){
 }
 
 
-
+//questa funzione mi ha provocato problemi
 int writeBuffSocket(int socket, char *buffer, int len)
 {
 	int l,w; 
@@ -83,37 +65,28 @@ int writeBuffSocket(int socket, char *buffer, int len)
 	return len; 
 }
 
-void padBuff(char *buffer, int len, int maxLen){
-	if(len<maxLen)
-	{
-		memset(buffer + len, ' ', maxLen-len); 
-	}
-	buffer[maxLen-1] = '\0'; 
-}
-
-int checkFormatUsername(char *username)
+static int checkFormatUsername(char *username)
 {
 	if(strlen(username) > 4) return 0; 
 	return -1; 
 
 }
 
-int getValideUsername(char *username)
+static void getValideUsername(char *username)
 {
 	while(1){
-		if(getInput(username, SIZE_USERNAME))
+		if(getInput(username, SIZE_USERNAME+1))
 		{
 			errFunction("Errore di lettura username da stdin"); 
 		}
 		if(checkFormatUsername(username) == 0) break;
 		printf("Lunghezza username deve essere >4"); 
 	}
-	return 0; 
 
 }
 
 
-int controlPass(char *password, char *seq){
+static int controlPass(char *password, char *seq){
 	for(int i = 0; i<strlen(password); i++){
 		for(int j = 0; j<strlen(seq); j++){
 			if(password[i] == seq[j]){
@@ -124,7 +97,8 @@ int controlPass(char *password, char *seq){
 	return -1; 
 
 }
-int checkFormatPassword(char *password){
+
+static int checkFormatPassword(char *password){
 	char *specials = "!?#$%^&*()-+_="; 
 	char *num = "1234567890"; 
 	char *alM = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
@@ -135,29 +109,38 @@ int checkFormatPassword(char *password){
 
 }
 
-void buildAuthMessage(char *authMessage, char *username, char *password)
-{
-	sprintf(authMessage, "%s %s", username, password); 
-	authMessage[SIZE_AUTH_MESSAGE] = 0; 
-}
-
-
-
-
-int getValidePassword(char *password){
+static void getValidePassword(char *password){
 	while(1){
-		if(getInput(password, SIZE_PASSWORD))
+		if(getInput(password, SIZE_PASSWORD+1))
 		{
 			errFunction("Errore di lettura password da stdin");
 		}
 		if(checkFormatPassword(password) == 0) break; 
 		printf("Formato password :almeno 8 caratteri tra cui una lettera maiuscola, un numero e un carattere speciale\n"); 
 	}
-
-	return 0; 
 }
 
-int loginFunctionClient(int socket, char *username, char *password){
+//anche questa funzione sembra da helper.c
+void padBuff(char *buffer, int len, int maxLen){
+	if(len<maxLen)
+	{
+		memset(buffer + len, ' ', maxLen-len); 
+	}
+	buffer[maxLen-1] = '\0'; 
+}
+
+void buildMessage(char *bMessage, char *s1, char *s2, int len)
+{
+	sprintf(bMessage, "%s %s", s1, s2); 
+	bMessage[len] = 0; 
+}
+
+
+
+
+static void loginFunctionClient(int socket, char *username, char *password){
+
+	int ret; 
 	char c; 
 	char authMessage[SIZE_AUTH_MESSAGE]; 
 
@@ -170,17 +153,21 @@ int loginFunctionClient(int socket, char *username, char *password){
 		printf("Inserisci password\n"); 
 		getValidePassword(password); 
 		
-		
 		padBuff(username, strlen(username), SIZE_USERNAME+1); 
 		padBuff(password, strlen(password), SIZE_PASSWORD+1); 
 		
-		
-		buildAuthMessage(authMessage, username, password); 
+		buildMessage(authMessage, username, password,SIZE_AUTH_MESSAGE); 
    		
    		//sviluppare una write che funzioni
    		write(socket, authMessage, sizeof(authMessage)); 
 	 
-		readCom(socket, &c); 
+		ret = readCom(socket, &c); 
+		
+		if(ret == 0){
+			errFunction("Connessione chiusa dal peer"); 
+		}else if(ret == -1){
+			errFunction("Errore di lettura dalla socket"); 
+		}
 		
 		switch(c){
 			case COMMAND_SUCCESS: 
@@ -193,18 +180,18 @@ int loginFunctionClient(int socket, char *username, char *password){
 				printf("Credenziali non coerenti, inserire le credenziali correttamente\n"); 
 				break; 
 			default: 
-				errFunction("Errore di comunicazione");
+				errFunction("Errore di comunicazione3");
 		
 		}
 		if(c == COMMAND_SUCCESS) break; 
 	}
-	return 0; 
 }
 
-int subFunctionClient(int socket, char *username, char *password)
+static void subFunctionClient(int socket, char *username, char *password)
 {
+	
+	int ret; 
 	char c; 
-	//ma uuna macro che è data dalla somma di due macro oh idea buona e sembra funzionare
 	char authMessage[SIZE_AUTH_MESSAGE]; 
 	
 	while(1)
@@ -220,12 +207,18 @@ int subFunctionClient(int socket, char *username, char *password)
 		padBuff(username, strlen(username), SIZE_USERNAME+1);
 		padBuff(password, strlen(password), SIZE_PASSWORD+1);
    
-   		buildAuthMessage(authMessage, username, password); 
+   		buildMessage(authMessage, username, password,SIZE_AUTH_MESSAGE); 
    		
    		//sviluppare una write che funzioni
    		write(socket, authMessage, sizeof(authMessage)); 
    		
-		readCom(socket, &c); 
+   		ret = readCom(socket, &c);
+   		
+		if(ret == 0){
+			errFunction("Connessione chiusa dal server"); 
+		}else if(ret == -1){
+			errFunction("Errore di lettura dalla socket"); 
+		}		
 		
 		switch(c){
 			case COMMAND_SUCCESS: 
@@ -235,42 +228,53 @@ int subFunctionClient(int socket, char *username, char *password)
 				printf("L'utente è già registrato nel sistema\n"); 
 				break; 
 			default: 
-				errFunction("Errore di comunicazione"); 
+				errFunction("Errore di comunicazione2"); 
 		}
 		if( c == COMMAND_SUCCESS) break; 
 	}
-	return 0;
+
 }
 
-int authFunctionClient(char *username, char *password, int socket){
+static void authFunctionClient(char *username, char *password, int socket){
+
 	char c; 
 	char buffer[SIZE]; 
 	
 	printf("Scrivere SUB per la registrazione oppure LOG per il login\n"); 
+	
 	while(1){
-		if(getInput(buffer, SIZE))
+		if(getInput(buffer, SIZE+1))
 		{
 			errFunction("Lettura da stdin non riuscita"); 
 		}
 		if(strcmp(buffer, "SUB") == 0)
 		{
-			writeCom(socket, COMMAND_SUB); 
+			if(writeCom(socket, COMMAND_SUB) == -1)
+			{
+				errFunction("Errore di scrittura sulla socket"); 
+			}
+			
 			subFunctionClient(socket, username, password); 
 			loginFunctionClient(socket, username, password); 
 			break; 
+			
 		}else if(strcmp(buffer, "LOG") == 0)
 		{
-			writeCom(socket, COMMAND_LOG); 
+			if(writeCom(socket, COMMAND_LOG) == -1)
+			{
+				errFunction("Errore di scrittura sulla socket"); 
+			}
+			
 			loginFunctionClient(socket, username, password); 
 			break; 
+			
 		}else{
 			printf("Inserire SUB (per la registrazione) oppure LOG (per il login)...\n");
 		}
 	}
-	return 0; 
 }
 
-int delMessageFunction(int socket)
+static void delMessageFunction(int socket)
 {
 
 
@@ -279,26 +283,127 @@ int delMessageFunction(int socket)
 }
 
 
-int viewMessageFunction(int socket)
+static void printMessage(char *message)
 {
 
-
-
+	char objBuffer[SIZE_OBJECT+1]; 
+	char textBuffer[SIZE_TEXT+1]; 
+	char authorBuffer[SIZE_USERNAME+1]; 
+	//sarebbe meglio mandare anche un codice con il messaggio in modo da indentificarlo
+	
+	
+	
+	//should slplit the message
+	
+	printf("<-----Messaggio----->"); 
+	printf("\n"); 
+	printf("Oggetto:%s",objBuffer); 
+	printf("\n"); 
+	printf("Testo:%s",textBuffer); 
+	printf("\n"); 
+	printf("Autore:%s",authorBuffer);; 
+	printf("\n"); 
+	printf("<------------------->"); 
 
 
 
 }
 
 
-int postMessageFunction(int socket)
+static void viewMessageFunction(int socket)
 {
 
+	int ret; 
+	char c; 
+	char numMsgBuff[SIZE_NUM_MSG+1];
+	char msgMessage[SIZE_MSG_COMPLETE_MESSAGE];
+	 
+	int n; 
+	//serve una read per 
 
 
+	ret = readBuffSocket(socket, numMsgBuff, SIZE_NUM_MSG) ; 
+	
+	if(ret == 0)
+	{
+		errFunction("Connessione chiusa dal server"); 	
+	}else if( ret == -1)
+	{
+		errFunction("Errore di lettura dalla socket"); 
+	}
+	
+	numMsgBuff[SIZE_NUM_MSG] = 0; 
+	
+	//converti la strina in numero
+	
+	n = strtol(numMsgBuff, NULL, 10); 
 
+	for(int i = 0; i<n; i++){
+		if(readBuffSocket(socket, msgMessage, SIZE_MSG_MESSAGE) == -1){
+			errFunction("Errore in lettura messaggio da bacheca"); 
+		}
+		printMessage(msgMessage);
+	}
 
+	//in che caso potrebbe andare male
+	//serve un timeout e mandare command failure o qualcosa
+	//SIVULLAPRE QUESTO PUNTO
+	if(writeCom(socket, COMMAND_SUCCESS) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	}
 }
 
+
+static void postMessageFunction(int socket)
+{
+	int ret; 
+	char c; 
+	char objBuffer[SIZE_OBJECT +1]; 
+	char textBuffer[SIZE_TEXT +1]; 
+	
+	char msgMessage[SIZE_MSG_MESSAGE];
+	
+	printf("Inserire oggetto del messaggio (massimo 64 caratteri) :\n"); 
+	if(getInput(objBuffer, SIZE_OBJECT+1)){
+		errFunction("Errore di lettura oggetto del messaggio da stdin"); 
+	}
+
+	printf("Inserire testo del messaggio (massimo 160 caratteri) :\n"); 
+	if(getInput(objBuffer, SIZE_OBJECT+1)){
+		errFunction("Errore di lettura testo del messaggio da stdin\n"); 
+	}
+
+	padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT +1); 
+	padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT +1); 
+	buildMessage(msgMessage, objBuffer, textBuffer, SIZE_MSG_MESSAGE); 
+	
+	//la write è da mettere apposto comunque
+	
+	write(socket,msgMessage, sizeof(msgMessage)); 
+
+
+	
+	ret = readCom(socket, &c); 
+
+	if(ret == 0){
+		errFunction("Connessione chiusa dal peer"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dalla socket"); 
+	}	
+	
+	//eeehehehe solito problema ma io faccio funzioni che ritornano erri ma quando sbagli chi oh e come brro non lo so forse non curo l'errore dentro.. non lo so ma se manda roba non riconosciuta
+	switch(c){
+		case COMMAND_SUCCESS: 
+			printf("Messaggio registrato con successo !!"); 
+			break; 
+		case COMMAND_FAILURE: 
+			printf("Impossibile registrare messaggio"); 
+			break; 
+		default: 
+			printf("NOn so cosa fare aiuto\n");  
+	}
+}
 
 
 
@@ -306,15 +411,25 @@ int postMessageFunction(int socket)
 
 void clientFunc(int socket)
 {
+
+	int ret; 
+	char c; 
 	char username[SIZE_USERNAME+1]; 
 	char password[SIZE_PASSWORD+1];
-	char c;  
 	
-	readCom(socket, &c); 
+	ret = readCom(socket, &c); 
+	
+	if(ret == 0){
+		errFunction("Connessione chiusa dal server"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dala socket"); 
+	}
+	
 	if( c == COMMAND_AUTH ) {
 		authFunctionClient(username, password, socket); 
 	}else{
-		errFunction("Errore di comunicazione"); 
+		printf("Il codice usato è %d\n", COMMAND_AUTH); 
+		errFunction("Errore di comunicazione1"); 
 	}
 	
 	while(1){
