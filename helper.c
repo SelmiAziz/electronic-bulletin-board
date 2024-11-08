@@ -64,33 +64,48 @@ void fill(char *l, char *buffUser, char *buffPass){
 	buffPass[strlen(token)] = 0; 
 }
 
-void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, int *v) {
+void safeCopy(char *dest, const char *src) {
+	if (src != NULL && dest != NULL) {
+    	if (*src == '"') {
+        	src++;
+         }
+         size_t len = strlen(src);
+         if (len > 0 && src[len - 1] == '"') {
+         	len--;
+         }
+         strncpy(dest, src, len);
+         dest[len] = '\0';
+        }
+}
+
+void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, char *buffMessageId, int *v) {
     char *token;
 
-    // Estrarre l'oggetto
-    token = strtok(l, "\"");
-    strncpy(buffObj, token, strlen(token));
-    buffObj[strlen(token)] = '\0'; // Terminare la stringa
+    token = strtok(l, ",");
+    safeCopy(buffObj, token);
 
-    // Estrarre il testo
-    token = strtok(NULL, "\",");
-    strncpy(buffText, token, strlen(token));
-    buffText[strlen(token)] = '\0'; // Terminare la stringa
-
-    // Estrarre l'autore
-    token = strtok(NULL, "\",");
-    strncpy(buffUser, token, strlen(token));
-    buffUser[strlen(token)] = '\0'; // Terminare la stringa
-
-    // Estrarre la flag di validità
     token = strtok(NULL, ",");
-    *v = strtol(token, NULL, 10); // Convertire la flag in intero
+    safeCopy(buffText, token);
+
+    token = strtok(NULL, ",");
+    safeCopy(buffUser, token);
+
+    token = strtok(NULL, ",");
+    safeCopy(buffMessageId, token);
+
+    token = strtok(NULL, ",");
+    if (token != NULL) {
+        *v = strtol(token, NULL, 10);
+    }
 }
+
+
+
 
 //write file for message and for user
 
 int wrUser(char *buffUser, char *buffPassword, char *file){
-	char buff[1024]; 
+	char buff[SIZE_BUFF]; 
 	FILE *myFile = fopen(file, "a"); 
 	if(myFile == NULL){
 		fprintf(stderr, "Error in opening file\n"); 
@@ -104,14 +119,14 @@ int wrUser(char *buffUser, char *buffPassword, char *file){
 
 
 //passandola sotto va a scrive direttamente cercare di fare delle modifiche
-void wrMessage(char*buffUser, char *buffObj, char *buffText, char *file){
-	char buff[1024]; 
+void wrMessage(char*buffUser, char *buffObj, char *buffText, char *buffIdMessage, char *file){
+	char buff[SIZE_BUFF]; 
 	FILE *myFile = fopen(file, "a"); 
 	if(myFile == NULL){
 		fprintf(stderr, "Error in opening file\n");
 		exit(EXIT_FAILURE); 
 	}
-	sprintf(buff, "\"%s\",\"%s\",\"%s\",1\n", buffObj, buffText, buffUser); 
+	sprintf(buff, "\"%s\",\"%s\",\"%s\",\"%s\",1\n", buffObj, buffText, buffUser,buffIdMessage); 
 	fprintf(myFile,buff); 
 	fclose(myFile); 
 }

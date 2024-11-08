@@ -38,8 +38,12 @@ int main(int arcv, char *argv[]){
 	char *fileMessages = "back_messages.csv"; 
 	User *head = NULL; 
 	
+	
 	//devo trovare il modo di specificare il file che intendo usare
 	fillUsers(&head, fileUsers); 
+	fillMessagesUsers(head,fileMessages);
+	
+	
 	
 	if( (listSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 		errFunction("Errore nella creazione della socket"); 
@@ -75,7 +79,7 @@ int main(int arcv, char *argv[]){
 		}
 		
 		tData->socket = connSocket;
-		tData->head = head; 
+		tData->head = &head; 
 		
 		//servirebbe prima fare una sorta di detach modificando gli attributi del thread
 		if(pthread_create(&pid, NULL, worker, (void*)tData)){

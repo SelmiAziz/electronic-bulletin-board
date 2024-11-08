@@ -18,52 +18,58 @@ int writeCom(int socket, char command){
 	return write(socket, &command, 1); 
 }
 
+//EHM
+static int readTimeout(int fd, void *buffer, size_t total_bytes)
+{
+    size_t bytes_read = 0;
+    ssize_t result;
+    int attempts = 0;
 
-int readBuffSocket(int socket, char *buff, int len){
-    int ret, i;  
-    char c; 
-    for( i = 1; i<len; i++){
-    	ret = read(socket, &c, 1); 
-    	if(ret == 1){
-    		*buff++= c; 
-    		if( c == '\n') break; 
-    	}else{
-    		if(ret == 0){
-    			if(i== 1) return 0; 
-    			else break; 
-    		}else{
-    			if(errno == EINTR) continue; 
-    			return -1; 
-    		}	
-    	}	
+    while (bytes_read < total_bytes) {
+        result = read(fd, (char *)buffer + bytes_read, total_bytes - bytes_read);
+
+        if (result < 0) {
+            if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                attempts++;
+                if (attempts == 10) {
+                    return -1;
+                }
+                continue; 
+            }
+            return -1; 
+        } else if (result == 0) {
+            return 0; 
+        }
+
+        bytes_read += result;
     }
-   *buff = 0; 
-   return i; 
-}
 
+    return bytes_read; 
+}
 
 //questa funzione mi ha provocato problemi
 int writeBuffSocket(int socket, char *buffer, int len)
 {
 	int l,w; 
 	l = len; 
-	
 	while(l > 0)
 	{
-		w = write(socket, buffer, len); 
+
+		w = write(socket, buffer, l); 
 		if( w <= 0)
 		{
 			if(errno == EINTR) w = 0; 
 			else{
 				return -1; 
 			}
+		}
 		l -= w; 
 		buffer += w; 
 		
-		}
 	}
 	return len; 
 }
+
 
 static int checkFormatUsername(char *username)
 {
@@ -126,13 +132,37 @@ void padBuff(char *buffer, int len, int maxLen){
 	{
 		memset(buffer + len, ' ', maxLen-len); 
 	}
-	buffer[maxLen-1] = '\0'; 
+	buffer[maxLen] = 0; 
 }
 
 void buildMessage(char *bMessage, char *s1, char *s2, int len)
 {
-	sprintf(bMessage, "%s %s", s1, s2); 
-	bMessage[len] = 0; 
+	sprintf(bMessage, "%s%s", s1, s2); 
+}
+
+int findEndField(char *f, int lStart, int endMax)
+{ 
+	for(int i = endMax; i >= lStart; i--)
+	{
+		if(f[i] == ' ') return i; 
+	}
+	return endMax; 
+
+}
+
+
+void extractField(char *s,char *str,  int lStart, int lMax)
+{
+	int i ; 
+	int l = 0; 
+	int lEnd = findEndField(s,lStart, lMax); 
+	for( i = lStart; i < lEnd && !(s[i] == ' ' && s[i+1] == ' '); i++)
+	{
+		//per adesso mi accontento di questo ma questa funazione è da migliorare perché deve prendere tutta la stringa fino a quando effettiviamente stanno solo spazi
+		str[l] = s[i]; 
+		l++;
+	}
+	str[l] = '\0'; 
 }
 
 
@@ -153,13 +183,17 @@ static void loginFunctionClient(int socket, char *username, char *password){
 		printf("Inserisci password\n"); 
 		getValidePassword(password); 
 		
-		padBuff(username, strlen(username), SIZE_USERNAME+1); 
-		padBuff(password, strlen(password), SIZE_PASSWORD+1); 
+		padBuff(username, strlen(username), SIZE_USERNAME); 
+		padBuff(password, strlen(password), SIZE_PASSWORD); 
 		
 		buildMessage(authMessage, username, password,SIZE_AUTH_MESSAGE); 
    		
    		//sviluppare una write che funzioni
-   		write(socket, authMessage, sizeof(authMessage)); 
+   		//sostituzione qui
+   		if(writeBuffSocket(socket, authMessage, SIZE_AUTH_MESSAGE) == -1)
+   		{
+   			errFunction("Errore di scrittura sulla socket"); 
+   		}
 	 
 		ret = readCom(socket, &c); 
 		
@@ -204,15 +238,20 @@ static void subFunctionClient(int socket, char *username, char *password)
 		getValidePassword(password); 
 		
  
-		padBuff(username, strlen(username), SIZE_USERNAME+1);
-		padBuff(password, strlen(password), SIZE_PASSWORD+1);
+		padBuff(username, strlen(username), SIZE_USERNAME);
+		padBuff(password, strlen(password), SIZE_PASSWORD);
    
    		buildMessage(authMessage, username, password,SIZE_AUTH_MESSAGE); 
    		
    		//sviluppare una write che funzioni
-   		write(socket, authMessage, sizeof(authMessage)); 
+   	
+   		if(writeBuffSocket(socket, authMessage, SIZE_AUTH_MESSAGE) == -1)
+   		{
+   			errFunction("Errore di scrittura sulla socket"); 
+   		} 
    		
    		ret = readCom(socket, &c);
+   	
    		
 		if(ret == 0){
 			errFunction("Connessione chiusa dal server"); 
@@ -223,9 +262,11 @@ static void subFunctionClient(int socket, char *username, char *password)
 		switch(c){
 			case COMMAND_SUCCESS: 
 				printf("Registrazione andata a buon fine\n"); 
+				fflush(stdout); 
 				break;
 			case COMMAND_ERR_USER_ALREADY_EXISTS: 
 				printf("L'utente è già registrato nel sistema\n"); 
+				fflush(stdout); 
 				break; 
 			default: 
 				errFunction("Errore di comunicazione2"); 
@@ -282,17 +323,88 @@ static void delMessageFunction(int socket)
 
 }
 
+static void postMessageFunction(int socket)
+{
+	int ret; 
+	char c; 
+	char objBuffer[SIZE_OBJECT+1]; 
+	char textBuffer[SIZE_TEXT+1]; 
+	
+	char msgMessage[SIZE_MSG_MESSAGE];
+	
+	
+	if(writeCom(socket, COMMAND_POST_MSG) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	}
+	
+	printf("Inserire oggetto del messaggio (massimo 64 caratteri) :\n"); 
+	if(getInput(objBuffer, SIZE_OBJECT)){
+		errFunction("Errore di lettura oggetto del messaggio da stdin"); 
+	}
 
-static void printMessage(char *message)
+	printf("Inserire testo del messaggio (massimo 160 caratteri) :\n"); 
+	fflush(stdout);
+	if(getInput(textBuffer, SIZE_TEXT)){
+		errFunction("Errore di lettura testo del messaggio da stdin\n"); 
+	}
+
+	padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT ); 
+	padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT ); 
+	buildMessage(msgMessage, objBuffer, textBuffer, SIZE_MSG_MESSAGE); 
+	
+	
+	
+	if((ret = writeBuffSocket(socket,msgMessage, SIZE_MSG_MESSAGE)) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	}
+
+
+	ret = readCom(socket, &c); 
+
+	if(ret == 0){
+		errFunction("Connessione chiusa dal peer"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dalla socket"); 
+	}	
+	//eeehehehe solito problema ma io faccio funzioni che ritornano erri ma quando sbagli chi oh e come brro non lo so forse non curo l'errore dentro.. non lo so ma se manda roba non riconosciuta
+	switch(c){
+		case COMMAND_SUCCESS: 
+			printf("Messaggio registrato con successo !!"); 
+			fflush(stdout); 
+			break; 
+			//non ho idea di cosa faccia questa roba
+		case COMMAND_FAILURE: 
+			printf("Impossibile registrare messaggio"); 
+			fflush(stdout);
+			break; 
+		default: 
+			printf("Non so cosa fare aiuto\n");  
+			fflush(stdout);
+	}
+}
+
+static void printGenericMessage(char *message)
 {
 
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
+	char idBuffer[SIZE_MESSAGE_ID+1]; 
 	char authorBuffer[SIZE_USERNAME+1]; 
 	//sarebbe meglio mandare anche un codice con il messaggio in modo da indentificarlo
+	//STA ROBA NON MI PIACE
+	extractField(message,objBuffer,0, SIZE_OBJECT); 
+	extractField(message,textBuffer, SIZE_OBJECT, SIZE_OBJECT + SIZE_TEXT); 
+	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID); 
+	extractField(message,authorBuffer, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID + SIZE_USERNAME); 
 	
 	
+	printf("\n\nCarattere\n"); 
 	
+	printf("Il carattere %c\n", message[SIZE_OBJECT + SIZE_TEXT+1]);
+	
+	printf("\n"); 
 	//should slplit the message
 	
 	printf("<-----Messaggio----->"); 
@@ -301,7 +413,41 @@ static void printMessage(char *message)
 	printf("\n"); 
 	printf("Testo:%s",textBuffer); 
 	printf("\n"); 
-	printf("Autore:%s",authorBuffer);; 
+	printf("ID Messaggio:%s",idBuffer);; 
+	printf("\n"); 
+	printf("Autore: %s", authorBuffer);
+	printf("\n"); 
+	printf("<------------------->"); 
+
+
+
+}
+
+static void printPersonalMessage(char *message)
+{
+
+	char objBuffer[SIZE_OBJECT+1]; 
+	char textBuffer[SIZE_TEXT+1]; 
+	char idBuffer[SIZE_MESSAGE_ID+1]; 
+	//sarebbe meglio mandare anche un codice con il messaggio in modo da indentificarlo
+	extractField(message,objBuffer,0, SIZE_OBJECT); 
+	extractField(message,textBuffer, SIZE_OBJECT, SIZE_OBJECT + SIZE_TEXT); 
+	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID); 
+	
+	printf("\n\nCarattere\n"); 
+	
+	printf("Il carattere %c\n", message[SIZE_OBJECT + SIZE_TEXT+1]);
+	
+	printf("\n"); 
+	//should slplit the message
+	
+	printf("<-----Messaggio----->"); 
+	printf("\n"); 
+	printf("Oggetto:%s",objBuffer); 
+	printf("\n"); 
+	printf("Testo:%s",textBuffer); 
+	printf("\n"); 
+	printf("ID Messaggio:%s",idBuffer);; 
 	printf("\n"); 
 	printf("<------------------->"); 
 
@@ -310,19 +456,14 @@ static void printMessage(char *message)
 }
 
 
-static void viewMessageFunction(int socket)
+
+
+static int numberMessages(int socket)
 {
-
-	int ret; 
-	char c; 
+	int ret, n; 
 	char numMsgBuff[SIZE_NUM_MSG+1];
-	char msgMessage[SIZE_MSG_COMPLETE_MESSAGE];
-	 
-	int n; 
-	//serve una read per 
 
-
-	ret = readBuffSocket(socket, numMsgBuff, SIZE_NUM_MSG) ; 
+	ret = readTimeout(socket, numMsgBuff, SIZE_NUM_MSG) ; 
 	
 	if(ret == 0)
 	{
@@ -332,78 +473,105 @@ static void viewMessageFunction(int socket)
 		errFunction("Errore di lettura dalla socket"); 
 	}
 	
-	numMsgBuff[SIZE_NUM_MSG] = 0; 
+ 
+ 	//sta funzione è strana in quanto è lo stesso buffer che sovrascrivo
+	extractField(numMsgBuff,numMsgBuff,0,SIZE_NUM_MSG); 
 	
-	//converti la strina in numero
 	
-	n = strtol(numMsgBuff, NULL, 10); 
+	
+	n = strtol(numMsgBuff, NULL, 10);
+
+
+	if(n > 0) return n; 
+	return -1; 
+
+
+
+}
+
+
+static void viewMessageFunction(int socket)
+{
+
+	int ret, n; 
+	char c; 
+	char numMsgBuff[SIZE_NUM_MSG+1];
+	char objBuffer[SIZE_OBJECT+1]; 
+	char textBUffer[SIZE_TEXT+1]; 
+	char idBuffer[SIZE_MESSAGE_ID+1]; 
+	char msgMessage[SIZE_PERSONAL_COMPLETE_MESSAGE];
+	 
+
+	if(writeCom(socket,COMMAND_VIEW_MSG) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	
+	}
+
+	n = numberMessages(socket); 	
+	if(n == -1)
+	{
+		//qua che cosa faccio oh
+	}
 
 	for(int i = 0; i<n; i++){
-		if(readBuffSocket(socket, msgMessage, SIZE_MSG_MESSAGE) == -1){
+		if(readTimeout(socket, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE) == -1)
+		{
 			errFunction("Errore in lettura messaggio da bacheca"); 
 		}
-		printMessage(msgMessage);
+		printPersonalMessage(msgMessage); 
 	}
+
+	
 
 	//in che caso potrebbe andare male
 	//serve un timeout e mandare command failure o qualcosa
 	//SIVULLAPRE QUESTO PUNTO
-	if(writeCom(socket, COMMAND_SUCCESS) == -1)
+
+}
+
+
+
+
+
+
+static void viewAllMessageFunction(int socket)
+{
+
+	int ret; 
+	char c; 
+	char msgMessage[SIZE_GENERIC_COMPLETE_MESSAGE];
+	int n; 
+
+	if(writeCom(socket,COMMAND_VIEW_ALL_MSG) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	
+	}
+
+	n = numberMessages(socket); 
+
+
+	for(int i = 0; i<n; i++){
+		if(readTimeout(socket, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
+		{
+			errFunction("Errore in lettura messaggio da bacheca"); 
+		}
+		printPersonalMessage(msgMessage); 
+	}
+
+	
+
+	//in che caso potrebbe andare male
+	//serve un timeout e mandare command failure o qualcosa
+	//SIVULLAPRE QUESTO PUNTO
+	if(readCom(socket,&c) == -1)
 	{
 		errFunction("Errore di scrittura sulla socket"); 
 	}
+	
 }
 
-
-static void postMessageFunction(int socket)
-{
-	int ret; 
-	char c; 
-	char objBuffer[SIZE_OBJECT +1]; 
-	char textBuffer[SIZE_TEXT +1]; 
-	
-	char msgMessage[SIZE_MSG_MESSAGE];
-	
-	printf("Inserire oggetto del messaggio (massimo 64 caratteri) :\n"); 
-	if(getInput(objBuffer, SIZE_OBJECT+1)){
-		errFunction("Errore di lettura oggetto del messaggio da stdin"); 
-	}
-
-	printf("Inserire testo del messaggio (massimo 160 caratteri) :\n"); 
-	if(getInput(objBuffer, SIZE_OBJECT+1)){
-		errFunction("Errore di lettura testo del messaggio da stdin\n"); 
-	}
-
-	padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT +1); 
-	padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT +1); 
-	buildMessage(msgMessage, objBuffer, textBuffer, SIZE_MSG_MESSAGE); 
-	
-	//la write è da mettere apposto comunque
-	
-	write(socket,msgMessage, sizeof(msgMessage)); 
-
-
-	
-	ret = readCom(socket, &c); 
-
-	if(ret == 0){
-		errFunction("Connessione chiusa dal peer"); 
-	}else if(ret == -1){
-		errFunction("Errore di lettura dalla socket"); 
-	}	
-	
-	//eeehehehe solito problema ma io faccio funzioni che ritornano erri ma quando sbagli chi oh e come brro non lo so forse non curo l'errore dentro.. non lo so ma se manda roba non riconosciuta
-	switch(c){
-		case COMMAND_SUCCESS: 
-			printf("Messaggio registrato con successo !!"); 
-			break; 
-		case COMMAND_FAILURE: 
-			printf("Impossibile registrare messaggio"); 
-			break; 
-		default: 
-			printf("NOn so cosa fare aiuto\n");  
-	}
-}
 
 
 
@@ -435,31 +603,34 @@ void clientFunc(int socket)
 	while(1){
 		printf("Menu\n"); 
 		printf("1:Inserire un nuovo messaggio\n"); 
-		printf("2:Visualizzare tutti i messaggi\n"); 
-		printf("3:Eliminare un messaggio\n"); 
-		printf("4:Quit\n"); 
+		printf("2:Visualizzare messaggi\n"); 
+		printf("3:Visualizzare tutti i messagi\n"); 
+		printf("4:Eliminare un messaggio\n"); 
+		printf("5:Quit\n"); 
 		c = getchar(); 
 		while(getchar() != '\n'); 
 		
 		switch(c){
 			case '1': 
-				writeCom(socket, COMMAND_POST_MSG); 
 				postMessageFunction(socket);
 				break; 
 			case '2': 
-				writeCom(socket, COMMAND_VIEW_MSG); 
 				viewMessageFunction(socket);
+				//postMessageFunction(socket); 
 				break; 
 			case '3': 
-				writeCom(socket, COMMAND_DELETE_MSG); 
+				viewAllMessageFunction(socket); 
+				break; 
+			case '4':  
 				delMessageFunction(socket); 
 				break; 
-			case '4': 
-				writeCom(socket, COMMAND_QUIT); 
+			case '5': 
+				//ma il thread del server che fine fa brother eh capiscilo
 				exit(EXIT_SUCCESS); 
 			default: 
 				printf("Opzione del menu non riconosciuta"); 
 		}
+
 	}
 	
 	

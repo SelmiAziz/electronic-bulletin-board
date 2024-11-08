@@ -5,8 +5,12 @@
 #include"messageLib.h"
 #include"helper.h"
 
-//idMessage is not implemented
-Message *createMessage(char *object, char *text){
+
+int countMessages = 0; 
+
+
+Message *createMessage(char *object, char *text, char *id)
+{
 	Message *myMessage = malloc(sizeof(Message)); 
 	if(myMessage == NULL){
 		fprintf(stderr, "Error in malloc occured!"); 
@@ -16,12 +20,15 @@ Message *createMessage(char *object, char *text){
 	myMessage->object[strlen(object)] = 0; 
 	strncpy(myMessage->text, text, strlen(text)); 
 	myMessage->text[strlen(text)] = 0; 
+	strncpy(myMessage->idMessage, id, strlen(id)); 
+	myMessage->idMessage[strlen(id)] = 0; 
 	myMessage->value = 1; 
 	return myMessage; 
 }
 
 
-void printMessage(Message *myMessage){
+void printMessage(Message *myMessage)
+{
 	if(myMessage){
 		printf("Object is %s text is %s\n", myMessage->object, myMessage->text); 
 	}
@@ -29,7 +36,8 @@ void printMessage(Message *myMessage){
 
 
 
-User *createUser(char *username, char *password){
+User *createUser(char *username, char *password)
+{
 	User *myUser = malloc(sizeof(User)); 
 	if(myUser == NULL){
 		fprintf(stderr, "Error in malloc occured!"); 
@@ -46,35 +54,44 @@ User *createUser(char *username, char *password){
 	return myUser; 
 }
 
-void printUser(User *myUser){
+void printUser(User *myUser)
+{
 	if(myUser){
 		printf("This is the user %s\n", myUser->username); 
 		for(int i = 0; i < myUser->count; i++){
 			printf("%s\n", myUser->messages[i]->object); 
+			printf("%s\n", myUser->messages[i]->text); 
 		}
 	}
 }
 
 
-void addUser(User **head, char *username, char *password){
+void addUser(User **head, char *username, char *password)
+{
+	printf("Fatto\n"); 
 	User *myUser = createUser(username, password); 
 	while(*head){
 		head = &(*head)->next; 
 	}
 	*head = myUser; 
+	printf("È %s\n", (*head)->username); 
+	fflush(stdout); 
 }
 
-void addMessage(User *myUser, char *object, char *text){
-	Message *myMessage = createMessage(object, text); 
+void addMessage(User *myUser, char *object, char *text, char *idMessage){
+	Message *myMessage = createMessage(object, text, idMessage); 
 	myUser->messages = realloc(myUser->messages, sizeof(Message)*++myUser->count); 
 	if(myUser->messages == NULL){
-		fprintf(stderr, "Error in realloc occured!\n"); 
-		exit(EXIT_FAILURE); 
 	}
 	myUser->messages[myUser->count-1] = myMessage; 
 }
 
 void addMessageUser(User *head, char *username, char *object, char *text){
+	
+	char idMessage[SIZE_MESSAGE_ID+1]; 
+	countMessages++; 
+	snprintf(idMessage, sizeof(idMessage), "%06d", countMessages); 
+	
 	while(head){
 		if(strcmp(head->username, username) == 0){
 			break; 
@@ -82,9 +99,11 @@ void addMessageUser(User *head, char *username, char *object, char *text){
 		head = head->next; 
 	}
 	if(head){
-		addMessage(head, object, text); 
+		addMessage(head, object, text,idMessage); 
 	
 	}
+	
+	wrMessage(username, object, text, idMessage, "back_messages.csv");
 
 
 }
@@ -101,6 +120,8 @@ void delMessageByIndex(User *myUser, int index){
 
 User *findUser(User *head, char *username){
 	while(head){
+		printf("Lo username %s\n", head->username); 
+		fflush(stdout); 
 		if(strcmp(head->username, username) == 0){
 			break; 
 		}
@@ -125,13 +146,15 @@ int delMessageUser(User *head, char *username, char *object){
 
 
 
-void printUserMessage(User *head, char *username){
+void printUserMessage(User *head, char *username)
+{
 	User *myUser = findUser(head, username); 
 	if(myUser){
 		printf("I messaggi di %s sono :\n", username); 
 		for(int i = 0; i<myUser->count; i++){
 			printf("Object %s\n", myUser->messages[i]->object); 
 			printf("Text %s\n", myUser->messages[i]->text); 
+			printf("Id %s\n", myUser->messages[i]->idMessage);
 		}
 	
 	}else{
@@ -157,6 +180,7 @@ void fillUsers(User **head, char *file){
 	fflush(stdout); 
 } 
 int checkUserPass(User *head, char *username, char *password){
+	fflush(stdout); 
 	while(head){
 		fflush(stdout); 
 		if( strcmp(head->username, username) == 0 && strcmp(head->password, password) == 0) return 0; 
@@ -168,15 +192,33 @@ int checkUserPass(User *head, char *username, char *password){
 void visualizeUsers(User *head){
 	while(head){
 		printf("Presente user %s\n", head->username); 
+		printUser(head); 
 		head = head->next; 
 	}
 }
 
+void addMessageUserOld(User *head, char *username, char *object, char *text, char *idMessage){
+	
+	
+	while(head){
+		if(strcmp(head->username, username) == 0){
+			break; 
+		}
+		head = head->next; 
+	}
+	if(head){
+		addMessage(head, object, text,idMessage); 
+	}
+
+
+}
+
 void fillMessagesUsers(User *head, char *file){
-	char buffUser[1024]; 
-	char buffObj[1024]; 
-	char buffText[1024]; 
-	char buff[1024]; 
+	char buffUser[SIZE_USERNAME+1]; 
+	char buffObj[SIZE_OBJECT+1]; 
+	char buffText[SIZE_TEXT+1]; 
+	char buffIdMessage[SIZE_MESSAGE_ID+1]; 
+	char buff[SIZE_BUFF]; 
 	int v; 
  	FILE *myFile = fopen(file, "r"); 
  	if(myFile == NULL){
@@ -184,10 +226,11 @@ void fillMessagesUsers(User *head, char *file){
  		exit(EXIT_FAILURE); 
  	
  	}
-	while(fgets(buff, 1024, myFile)){
-		fillMsg(buff, buffUser, buffObj, buffText, &v); 
+	while(fgets(buff, SIZE_BUFF, myFile)){
+		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v); 
 		if(v!= 0){
-			addMessageUser(head, buffUser, buffObj, buffText); 
+			addMessageUserOld(head, buffUser, buffObj, buffText, buffIdMessage); 
+			countMessages++; 
 		}
 	
 	}

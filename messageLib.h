@@ -3,7 +3,7 @@
 
 #define SIZE_OBJECT 64
 #define SIZE_TEXT 160
-#define SIZE_MESSAGE_ID 2
+#define SIZE_MESSAGE_ID 6
 
 #define SIZE_USERNAME 64
 #define SIZE_PASSWORD 64
@@ -11,14 +11,16 @@
 
 
 
-typedef struct message {
+typedef struct message{
     char object[SIZE_OBJECT]; 
     char text[SIZE_TEXT]; 
     char idMessage[SIZE_MESSAGE_ID];
     int value; 
 } Message; 
 
-typedef struct user {
+
+
+typedef struct user{
     char username[SIZE_USERNAME]; 
     char password[SIZE_PASSWORD]; 
     int count; 
@@ -26,12 +28,19 @@ typedef struct user {
     struct user *next; 
 } User; 
 
-Message *createMessage(char *object, char *text); 
+//Da implementare il bulletinBoard
+typedef struct bulletinBoard{
+	User *head;
+	int countMsg; 
+}BulletinBoard; 
+
+
+Message *createMessage(char *object, char *text, char *id); 
 void printMessage(Message *myMessage); 
 User *createUser(char *username, char *password); 
 void printUser(User *myUser); 
 void addUser(User **head, char *username, char *password); 
-void addMessage(User *myUser, char *object, char *text); 
+void addMessage(User *myUser, char *object, char *text, char *id); 
 void addMessageUser(User *head, char *username, char *object, char *text); 
 void delMessageByIndex(User *myUser, int index); 
 User *findUser(User *head, char *username); 
