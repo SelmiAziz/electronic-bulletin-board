@@ -139,7 +139,7 @@ void extractField(char *s,char *str,  int lStart, int lMax)
 }
 
 
-static void subFunctionServer(int socket, User **head, char *username, char *password)
+static void subFunctionServer(int socket,BulletinBoard *myBoard, char *username, char *password)
  {
     int ret; 
     char authMessage[SIZE_AUTH_MESSAGE]; 
@@ -170,7 +170,7 @@ static void subFunctionServer(int socket, User **head, char *username, char *pas
     	extractField(authMessage,password,SIZE_USERNAME, SIZE_USERNAME + SIZE_PASSWORD); 
    
    
-        if (findUser(*head, username)) 
+        if (findUser(myBoard, username)) 
         {
             if(writeCom(socket, COMMAND_ERR_USER_ALREADY_EXISTS) == -1)
             {
@@ -184,13 +184,13 @@ static void subFunctionServer(int socket, User **head, char *username, char *pas
             break;
         }
     }
-    addUser(head, username, password); 
+    addUser(myBoard, username, password); 
     wrUser(username, password, "back_users.csv"); 
     sleep(5); 
 }
 
 
-static void logFunctionServer(int socket, User *head, char *username, char *password)
+static void logFunctionServer(int socket, BulletinBoard *myBoard, char *username, char *password)
 {
 	//domanda ma nel buffer ci sono solo i caratteri o metto l'operatore finale
 	char authMessage[SIZE_AUTH_MESSAGE]; 
@@ -225,7 +225,7 @@ static void logFunctionServer(int socket, User *head, char *username, char *pass
     	extractField(authMessage,password,SIZE_USERNAME, SIZE_USERNAME + SIZE_PASSWORD);	
 		
 		
-		if(findUser(head,username) == NULL)
+		if(findUser(myBoard,username) == NULL)
 		{
 			if(writeCom(socket,COMMAND_ERR_USER_NOT_FOUND) == -1)
 			{
@@ -234,7 +234,7 @@ static void logFunctionServer(int socket, User *head, char *username, char *pass
 			
 			continue; 
 		}
-		if(checkUserPass(head, username, password))
+		if(checkUserPass(myBoard, username, password))
 		{
 			if(writeCom(socket, COMMAND_ERR_NOT_MATCH_CREDENTIALS) == -1)
 			{
@@ -254,7 +254,7 @@ static void logFunctionServer(int socket, User *head, char *username, char *pass
 
 
 
-static void authFuncServer(int socket, User **head, char *username, char *password)
+static void authFuncServer(int socket, BulletinBoard *myBoard, char *username, char *password)
 {	
 	char c; 
 	int ret; 
@@ -278,12 +278,12 @@ static void authFuncServer(int socket, User **head, char *username, char *passwo
 	//non dovrebbe mandare qulcosa per dire al client che è andato a buon fine il tutto ?
 	if( c == COMMAND_SUB)
 	{
-			subFunctionServer(socket, head, username, password); 
-			logFunctionServer(socket, *head, username, password);
+			subFunctionServer(socket, myBoard, username, password); 
+			logFunctionServer(socket, myBoard, username, password);
 			 
 	}else if( c == COMMAND_LOG)
 	{
-			logFunctionServer(socket, *head, username, password); 
+			logFunctionServer(socket, myBoard, username, password); 
 			
 	}else{
 		//mi hai mandato roba che non era vera
@@ -295,7 +295,7 @@ static void authFuncServer(int socket, User **head, char *username, char *passwo
 }
 
 
-static int postMessageFunction(int socket, User *head, char *username)
+static int postMessageFunction(int socket, BulletinBoard *myBoard, char *username)
 {
 	int ret; 
 	char c; 
@@ -326,9 +326,10 @@ static int postMessageFunction(int socket, User *head, char *username)
 	
 	//use add MEssage User
 	//qua di dovrebbero fare dei controlli così non mi piace affatto
-	addMessageUser(head,username,objBuffer, textBuffer);
+	//!!!!!ERRRORE DI RESPONSABILITY
+	addMessageUser(myBoard,username,objBuffer, textBuffer, "back_messages.csv");
 	
-	printUserMessage(head, username);  
+	printUserMessage(myBoard, username);  
 
 
 	if(writeCom(socket, COMMAND_SUCCESS) == -1)
@@ -355,7 +356,13 @@ void copyInBuffer(char *buff, char *origin)
 
 }
 
-static int viewMessageFunction(int socket, User *head, char *username)
+static int viewAllMessageFunction(int socket, BulletinBoard *myBoard)
+{
+	
+
+}
+
+static int viewMessageFunction(int socket, BulletinBoard *myBoard, char *username)
 {
 	int ret; 
 	char c; 
@@ -366,8 +373,8 @@ static int viewMessageFunction(int socket, User *head, char *username)
 	char idMessageBuffer[SIZE_MESSAGE_ID+1]; 
 	
 	//forse quuesta potrebbe tornnare NULL e fare un controllo boh
-	User *currentUser = findUser(head,username); 
-	
+	User *currentUser = findUser(myBoard,username); 
+
 	
 	//questo è da sistemare e quando è finito lo spazio per i messaggi fai alla funzione di messageLib che restituisce meno -1 così glielo diciamo che non abbiamo spazio
 	sprintf(numMsgBuff,"%d\0",currentUser->count);
@@ -427,13 +434,13 @@ void *worker(void *arg)
 	char c; 
 	int ret; 
 	int socket = tData->socket; 
-	User **head = tData->head;
+	BulletinBoard *myBoard = tData->myBoard; 
 	
 	free(tData); 
 	tData == NULL; 
 	
 
-	authFuncServer(socket, head, username, password);
+	authFuncServer(socket, myBoard, username, password);
 	
 	while(1){
 		ret = readCom(socket, &c);
@@ -459,17 +466,17 @@ void *worker(void *arg)
 			//riceve una stringa che è fatta padding per indicare il messaggio in questione
 		
 			//posso chiedere più volte di vedere un messaggio
-				viewMessageFunction(socket,*head,username);	
+				viewMessageFunction(socket,myBoard,username);	
 			break; 
 			
 			case COMMAND_VIEW_ALL_MSG: 
-				viewAllMessageFunction(socket,*head); 
+				viewAllMessageFunction(socket,myBoard); 
 			break; 
 			case COMMAND_POST_MSG: 
 				//attendo n byte per il oggetto del messaggio
 				//attendo m byte per il testo messaggio
 				//mand un success
-				postMessageFunction(socket, *head, username); 
+				postMessageFunction(socket, myBoard, username); 
 			break; 
 			case COMMAND_DELETE_MSG: 
 				//ricevo una stringa che indica id-messaggio

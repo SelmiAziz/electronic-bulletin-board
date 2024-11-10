@@ -31,25 +31,26 @@ typedef struct user{
 //Da implementare il bulletinBoard
 typedef struct bulletinBoard{
 	User *head;
-	int countMsg; 
+	int msgCount; 
 }BulletinBoard; 
 
 
 Message *createMessage(char *object, char *text, char *id); 
-void printMessage(Message *myMessage); 
+BulletinBoard *createBulletinBoard(); 
 User *createUser(char *username, char *password); 
+void printMessage(Message *myMessage); 
 void printUser(User *myUser); 
-void addUser(User **head, char *username, char *password); 
+void addUser(BulletinBoard *myBoard, char *username, char *password); 
 void addMessage(User *myUser, char *object, char *text, char *id); 
-void addMessageUser(User *head, char *username, char *object, char *text); 
+void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *text, char *file); 
 void delMessageByIndex(User *myUser, int index); 
-User *findUser(User *head, char *username); 
-int delMessageUser(User *head, char *username, char *object); 
-void printUserMessage(User *head, char *username); 
-int checkUserPass(User *head, char *password, char *username); 
-void fillUsers(User **head, char *file); 
-void visualizeUsers(User *head); 
-void fillMessagesUsers(User *head, char *file); 
+User *findUser(BulletinBoard *myBoard, char *username); 
+int delMessageUser(BulletinBoard *myBoard, char *username, char *object);  
+void printUserMessage(BulletinBoard *myBoard, char *username); 
+int checkUserPass(BulletinBoard *myBoard, char *password, char *username);
+void fillUsers(BulletinBoard *myBoard, char *file); 
+void visualizeUsers(BulletinBoard *myBoard); 
+void fillMessagesUsers(BulletinBoard *myBoard, char *file); 
 
 #endif // MESSAGE_LIB_H
 

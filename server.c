@@ -36,12 +36,12 @@ int main(int arcv, char *argv[]){
 	int port = 2500; 
 	char *fileUsers = "back_users.csv"; 
 	char *fileMessages = "back_messages.csv"; 
-	User *head = NULL; 
+	BulletinBoard *myBoard = createBulletinBoard(); 
 	
 	
 	//devo trovare il modo di specificare il file che intendo usare
-	fillUsers(&head, fileUsers); 
-	fillMessagesUsers(head,fileMessages);
+	fillUsers(myBoard, fileUsers); 
+	fillMessagesUsers(myBoard,fileMessages);
 	
 	
 	
@@ -79,7 +79,7 @@ int main(int arcv, char *argv[]){
 		}
 		
 		tData->socket = connSocket;
-		tData->head = &head; 
+		tData->myBoard = myBoard;
 		
 		//servirebbe prima fare una sorta di detach modificando gli attributi del thread
 		if(pthread_create(&pid, NULL, worker, (void*)tData)){

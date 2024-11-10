@@ -37,7 +37,7 @@
 
 typedef struct threadData {
     int socket; 
-    User **head; 
+    BulletinBoard *myBoard; 
 } ThreadData; 
 
 void *worker(void *arg); 

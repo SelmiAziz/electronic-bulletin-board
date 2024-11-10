@@ -5,8 +5,7 @@
 #include"messageLib.h"
 #include"helper.h"
 
-
-int countMessages = 0; 
+#define SIZE 1024
 
 
 Message *createMessage(char *object, char *text, char *id)
@@ -66,16 +65,28 @@ void printUser(User *myUser)
 }
 
 
-void addUser(User **head, char *username, char *password)
+void addUser(BulletinBoard *myBoard, char *username, char *password)
 {
-	printf("Fatto\n"); 
-	User *myUser = createUser(username, password); 
-	while(*head){
-		head = &(*head)->next; 
+	User *newUser = createUser(username, password); 
+	User *current;  
+	
+
+	
+	if( myBoard->head== NULL)
+	{
+		myBoard->head = newUser; 
+		return; 
 	}
-	*head = myUser; 
-	printf("È %s\n", (*head)->username); 
-	fflush(stdout); 
+	
+	current = myBoard->head; 
+	
+	while(current->next)
+	{
+		current = current->next; 
+	}
+	
+	current->next = newUser; 
+
 }
 
 void addMessage(User *myUser, char *object, char *text, char *idMessage){
@@ -86,24 +97,25 @@ void addMessage(User *myUser, char *object, char *text, char *idMessage){
 	myUser->messages[myUser->count-1] = myMessage; 
 }
 
-void addMessageUser(User *head, char *username, char *object, char *text){
+void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *text, char *file){
 	
 	char idMessage[SIZE_MESSAGE_ID+1]; 
-	countMessages++; 
-	snprintf(idMessage, sizeof(idMessage), "%06d", countMessages); 
+	User *current = myBoard->head; 
 	
-	while(head){
-		if(strcmp(head->username, username) == 0){
+	snprintf(idMessage, sizeof(idMessage), "%06d",++myBoard->msgCount); 
+	
+	
+	while(current){
+		if(strcmp(current->username, username) == 0){
 			break; 
 		}
-		head = head->next; 
+		current = current->next; 
 	}
-	if(head){
-		addMessage(head, object, text,idMessage); 
-	
+	if(current){
+		addMessage(current, object, text,idMessage); 
 	}
 	
-	wrMessage(username, object, text, idMessage, "back_messages.csv");
+	wrMessage(username, object, text, idMessage, file);
 
 
 }
@@ -111,33 +123,38 @@ void addMessageUser(User *head, char *username, char *object, char *text){
 //questa elimina dato un indice, è la funzione di livello superiore che se la chiama le fornisce l'indice da eliminare
 void delMessageByIndex(User *myUser, int index){
 	Message *myMessage = myUser->messages[index]; 
-	for(int i = index; i<myUser->count-1; i++){
+	
+	for(int i = index; i<myUser->count-1; i++)
+	{
 		myUser->messages[i] = myUser->messages[i+1]; 
 	}
 	myUser->messages = realloc(myUser->messages, sizeof(Message)*--myUser->count); 
 	free(myMessage); 
 }
 
-User *findUser(User *head, char *username){
-	while(head){
-		printf("Lo username %s\n", head->username); 
-		fflush(stdout); 
-		if(strcmp(head->username, username) == 0){
+User *findUser(BulletinBoard *myBoard, char *username){
+	User *current = myBoard->head; 	
+	
+	while(current)
+	{ 
+		if(strcmp(current->username, username) == 0){
 			break; 
 		}
-		head = head->next; 
+		current = current->next; 
 	}
-	if(head)return head; 
+	if(current)return current; 
 	return NULL; 
 
 }
 
 //questa funzione può fallire hai dato un oggetto non presente e quindi restituisce -1
-int delMessageUser(User *head, char *username, char *object){
-	User *myUser = findUser(head, username); 
+int delMessageUser(BulletinBoard *myBoard, char *username, char *object){
+	User *myUser = findUser(myBoard, username); 
 	if(myUser == NULL) return -1; 
-	for(int i = 0; i<myUser->count; i++){
-		if(strcmp(myUser->messages[i]->object, object) == 0){
+	for(int i = 0; i<myUser->count; i++)
+	{
+		if(strcmp(myUser->messages[i]->object, object) == 0)
+		{
 			delMessageByIndex(myUser, i); 
 		}
 	}
@@ -146,9 +163,9 @@ int delMessageUser(User *head, char *username, char *object){
 
 
 
-void printUserMessage(User *head, char *username)
+void printUserMessage(BulletinBoard *myBoard, char *username)
 {
-	User *myUser = findUser(head, username); 
+	User *myUser = findUser(myBoard, username); 
 	if(myUser){
 		printf("I messaggi di %s sono :\n", username); 
 		for(int i = 0; i<myUser->count; i++){
@@ -163,10 +180,12 @@ void printUserMessage(User *head, char *username)
 }
 
 //this stuff is awful i know
-void fillUsers(User **head, char *file){
+void fillUsers(BulletinBoard *myBoard, char *file)
+{
 	char buffUser[SIZE_USERNAME]; 
 	char buffPass[SIZE_PASSWORD]; 
-	char buff[1024]; 
+	char buff[SIZE]; 
+	
 	FILE *myFile = fopen(file, "r"); 
 	if(myFile == NULL){
 		fprintf(stderr, "Error opening file!"); 
@@ -175,67 +194,89 @@ void fillUsers(User **head, char *file){
 	}
 	while(fgets(buff, 1024, myFile)){
 		fill(buff,buffUser, buffPass);
-		addUser(head, buffUser, buffPass); 
+		addUser(myBoard, buffUser, buffPass); 
 	} 
-	fflush(stdout); 
+	fclose(myFile); 
 } 
-int checkUserPass(User *head, char *username, char *password){
-	fflush(stdout); 
-	while(head){
-		fflush(stdout); 
-		if( strcmp(head->username, username) == 0 && strcmp(head->password, password) == 0) return 0; 
-		head = head ->next; 
+
+int checkUserPass(BulletinBoard *myBoard, char *username, char *password)
+{
+	User *current = myBoard->head;
+	
+	while(current)
+	{
+		if( strcmp(current->username, username) == 0 && strcmp(current->password, password) == 0) return 0; 
+		current = current->next; 
 	}
 	return -1; 
 }
 
-void visualizeUsers(User *head){
-	while(head){
-		printf("Presente user %s\n", head->username); 
-		printUser(head); 
-		head = head->next; 
+void visualizeUsers(BulletinBoard *myBoard)
+{
+	User *current = myBoard->head; 
+	while(current)
+	{
+		printf("Presente user %s\n", current->username); 
+		printUser(current); 
+		current = current->next; 
 	}
 }
 
-void addMessageUserOld(User *head, char *username, char *object, char *text, char *idMessage){
-	
-	
-	while(head){
-		if(strcmp(head->username, username) == 0){
+void addMessageUserOld(BulletinBoard *myBoard, char *username, char *object, char *text, char *idMessage)
+{
+	User *current = myBoard->head; 
+
+	while(current)
+	{
+		if(strcmp(current->username, username) == 0){
 			break; 
 		}
-		head = head->next; 
+		current = current->next; 
 	}
-	if(head){
-		addMessage(head, object, text,idMessage); 
+	if(current){
+		addMessage(current, object, text,idMessage); 
 	}
 
 
 }
 
-void fillMessagesUsers(User *head, char *file){
+void fillMessagesUsers(BulletinBoard *myBoard, char *file)
+{
 	char buffUser[SIZE_USERNAME+1]; 
 	char buffObj[SIZE_OBJECT+1]; 
 	char buffText[SIZE_TEXT+1]; 
 	char buffIdMessage[SIZE_MESSAGE_ID+1]; 
 	char buff[SIZE_BUFF]; 
 	int v; 
+	
+	
  	FILE *myFile = fopen(file, "r"); 
- 	if(myFile == NULL){
+ 	if(myFile == NULL
+ 	){
  		fprintf(stderr, "Error opening file\n"); 
  		exit(EXIT_FAILURE); 
- 	
  	}
-	while(fgets(buff, SIZE_BUFF, myFile)){
+ 	
+	while(fgets(buff, SIZE_BUFF, myFile))
+	{
 		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v); 
 		if(v!= 0){
-			addMessageUserOld(head, buffUser, buffObj, buffText, buffIdMessage); 
-			countMessages++; 
+			addMessageUserOld(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
+			++myBoard->msgCount; 
 		}
-	
 	}
-
 }
 
-
+BulletinBoard *createBulletinBoard()
+{
+	BulletinBoard *myBoard = malloc(sizeof(BulletinBoard)); 
+	if(myBoard == NULL)
+	{
+		fprintf(stderr, "Error in malloc occured\n"); 
+		exit(EXIT_FAILURE); 
+	}
+	myBoard->head = NULL; 
+	myBoard->msgCount = 0; 
+	return myBoard; 
+}
 
