@@ -101,7 +101,6 @@ void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, char *buffM
 
 
 
-
 //write file for message and for user
 
 int wrUser(char *buffUser, char *buffPassword, char *file){

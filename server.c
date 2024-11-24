@@ -86,7 +86,6 @@ int main(int arcv, char *argv[]){
 			errFunction("Errore nella creazione del thread"); 
 		}	
 		
-		
 	} 
 	return 0; 
 }

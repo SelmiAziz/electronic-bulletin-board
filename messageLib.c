@@ -148,17 +148,19 @@ User *findUser(BulletinBoard *myBoard, char *username){
 }
 
 //questa funzione può fallire hai dato un oggetto non presente e quindi restituisce -1
-int delMessageUser(BulletinBoard *myBoard, char *username, char *object){
+int delMessageUser(BulletinBoard *myBoard, char *username, char *idMessage){
 	User *myUser = findUser(myBoard, username); 
 	if(myUser == NULL) return -1; 
 	for(int i = 0; i<myUser->count; i++)
 	{
-		if(strcmp(myUser->messages[i]->object, object) == 0)
+		if(strcmp(myUser->messages[i]->idMessage, idMessage) == 0)
 		{
 			delMessageByIndex(myUser, i); 
+			--myBoard->msgCount;
+			return 0; 
 		}
 	}
-	return 0; 
+	return -1; 
 }
 
 

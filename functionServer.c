@@ -338,13 +338,15 @@ static int postMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 	}
 }
 
-void buildPersonalUserMessage(char *msgMessage, char *object, char *text, char *idMessage){
+void buildPersonalUserMessage(char *msgMessage, char *object, char *text, char *idMessage)
+{
 	sprintf(msgMessage,"%s%s%s",object,text,idMessage);
 }
 
 
-void builGenericUserMessage(char *msgMessage, char *username, char *object, char *text, char *idMessage){
-	sprintf(msgMessage,"%s%s%s%s",username,object,text,idMessage);
+void buildGenericUserMessage(char *msgMessage, char *object, char *text, char *idMessage, char *author)
+{
+	sprintf(msgMessage,"%s%s%s%s",object,text,idMessage,author);
 }
 
 
@@ -356,14 +358,73 @@ void copyInBuffer(char *buff, char *origin)
 
 }
 
-static int viewAllMessageFunction(int socket, BulletinBoard *myBoard)
+static void viewAllMessageFunction(int socket, BulletinBoard *myBoard)
 {
+	int ret; 
+	char c; 
+	char numMsgBuff[SIZE_NUM_MSG];
+	char msgMessage[SIZE_GENERIC_COMPLETE_MESSAGE]; 
+	char objBuffer[SIZE_OBJECT+1]; 
+	char textBuffer[SIZE_TEXT+1]; 
+	char idMessageBuffer[SIZE_MESSAGE_ID+1]; 
+	char authorBuffer[SIZE_USERNAME+1]; 
+	User *currentUser; 
 	
+	
+	sprintf(numMsgBuff, "%d\0", myBoard->msgCount); 
+	padBuff(numMsgBuff, strlen(numMsgBuff), SIZE_NUM_MSG); 
+	
+	
+	if(writeBuffSocket(socket,numMsgBuff, SIZE_NUM_MSG) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	
+	}
+	
+	
+	currentUser = myBoard->head; 
+	while(currentUser)
+	{
+		for(int i = 0; i<currentUser->count;i++)
+		{
+		
+			copyInBuffer(objBuffer,currentUser->messages[i]->object); 
+			copyInBuffer(textBuffer,currentUser->messages[i]->text);
+			copyInBuffer(idMessageBuffer,currentUser->messages[i]->idMessage);
+			copyInBuffer(authorBuffer, currentUser->username);
+			
+			
+			
+			padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT); 
+			padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT); 
+			padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_MESSAGE_ID); 
+			padBuff(authorBuffer, strlen(authorBuffer), SIZE_USERNAME); 
+			
+			
+			
+		
+			buildGenericUserMessage(msgMessage, objBuffer, textBuffer, idMessageBuffer, authorBuffer);
+
+
+			if(writeBuffSocket(socket, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
+			{
+				errFunction("Errore di scrittura sulla socket"); 
+				fflush(stdout); 
+			}
+		}
+		currentUser = currentUser->next;
+	
+	
+	
+	
+	}
+	fflush(stdout); 
 
 }
 
-static int viewMessageFunction(int socket, BulletinBoard *myBoard, char *username)
+static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *username)
 {
+	
 	int ret; 
 	char c; 
 	char numMsgBuff[SIZE_NUM_MSG];
@@ -382,7 +443,7 @@ static int viewMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 	
 
 	
-	if (writeBuffSocket(socket,numMsgBuff, SIZE_NUM_MSG) == -1)
+	if(writeBuffSocket(socket,numMsgBuff, SIZE_NUM_MSG) == -1)
 	{
 		errFunction("Errore di scrittura sulla socket"); 
 	
@@ -424,6 +485,75 @@ static int viewMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 	
 	}
 	fflush(stdout); 
+}
+
+
+static void delMessageFunction(int socket, BulletinBoard *myBoard, char *username)
+{
+	int ret; 
+	char c; 
+	char idMessage[SIZE_MESSAGE_ID+1]; 
+	User *user; 
+	
+	ret = readTimeout(socket, idMessage, SIZE_MESSAGE_ID); 
+	
+	if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+    {
+    	writeCom(socket, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
+        close(socket);
+        pthread_exit(NULL); 
+    }
+    if (ret == -1) 
+    {
+    	if(writeCom(socket, COMMAND_CLOSE) == -1)
+    	{
+    		errFunction("Errore di scrittura sulla socket"); 
+    	}
+        close(socket);
+        pthread_exit(NULL); 
+    }
+    
+    idMessage[SIZE_MESSAGE_ID] = 0; 
+    
+    
+    printf("Messaggio richiesto di eliminare è %s\n", idMessage); 
+    fflush(stdout); 
+    
+   
+    
+    if(myBoard->msgCount< strtol(idMessage, NULL, 10 ) )
+    {
+    	printf("qo"); 
+    	fflush(stdout); 
+    	if( writeCom(socket, COMMAND_FAILURE) == -1)
+    	{
+    		errFunction("Errore di scrittura sulla socket"); 
+    	}
+    }else{
+    	if(delMessageUser(myBoard, username, idMessage) == -1)
+    	{
+    		printf("qa!"); 
+    		fflush(stdout); 
+    		if (writeCom(socket, COMMAND_FAILURE) == -1)
+    		{
+    			errFunction("Errore di scrittura sulla socket"); 
+    		}
+    	}else
+    	{
+    		if(writeCom(socket, COMMAND_SUCCESS) == -1)
+    		{
+    			errFunction("Errore di scrittura sulla socket"); 
+    		}
+    	
+    	}
+    
+    }
+	
+
+
+
+
+
 }
 
 void *worker(void *arg)
@@ -483,6 +613,7 @@ void *worker(void *arg)
 				//lo elmino subito oppure aspetto per eliminarlo ?
 				//faccio cancellazione in base all'username
 				//se non lo puoi cancellare allora mandi una flag per dire che tutto è andato male
+				delMessageFunction(socket, myBoard, username); 
 				//elminato mando un success
 			break; 
 			default: 

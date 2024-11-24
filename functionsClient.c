@@ -284,7 +284,7 @@ static void authFunctionClient(char *username, char *password, int socket){
 	printf("Scrivere SUB per la registrazione oppure LOG per il login\n"); 
 	
 	while(1){
-		if(getInput(buffer, SIZE+1))
+		if(getInput(buffer, SIZE))
 		{
 			errFunction("Lettura da stdin non riuscita"); 
 		}
@@ -315,12 +315,48 @@ static void authFunctionClient(char *username, char *password, int socket){
 	}
 }
 
+
 static void delMessageFunction(int socket)
 {
+	int ret; 
+	char c; 
+	char idMessage[SIZE_MESSAGE_ID+1]; 
+	
+	if( writeCom(socket, COMMAND_DELETE_MSG) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	}
 
+	printf("Scrivi Id da eliminare\n"); 
+	if(getInput(idMessage, SIZE_MESSAGE_ID+1) == -1)
+	{
+		errFunction("Errore di lettura id messagio da eliminare"); 
+	}
 
-
-
+	if (writeBuffSocket(socket, idMessage, SIZE_MESSAGE_ID) == -1)
+	{
+		errFunction("Errore di scrittura sulla socket"); 
+	
+	}
+		
+	ret = readCom(socket, &c) ; 
+	//una parte del mio codice mi dice di fare così ma sono sicuro di aver controllato il ret == 0 da tutte le parti ?? 
+	if(ret == 0){
+		errFunction("Connessione chiusa dal peer"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dalla socket"); 
+	}	
+	
+	switch(c){
+		case COMMAND_FAILURE: 
+			printf("Eliminazione del messaggio andata male");
+			break; 
+		case COMMAND_SUCCESS: 
+			printf("Eliminazione del messaggio andata a buon fine");
+			break; 
+		default: 
+			printf("Non riconosciuta"); 
+	}
 }
 
 static void postMessageFunction(int socket)
@@ -339,13 +375,13 @@ static void postMessageFunction(int socket)
 	}
 	
 	printf("Inserire oggetto del messaggio (massimo 64 caratteri) :\n"); 
-	if(getInput(objBuffer, SIZE_OBJECT)){
+	if(getInput(objBuffer, SIZE_OBJECT+1)){
 		errFunction("Errore di lettura oggetto del messaggio da stdin"); 
 	}
 
 	printf("Inserire testo del messaggio (massimo 160 caratteri) :\n"); 
 	fflush(stdout);
-	if(getInput(textBuffer, SIZE_TEXT)){
+	if(getInput(textBuffer, SIZE_TEXT+1)){
 		errFunction("Errore di lettura testo del messaggio da stdin\n"); 
 	}
 
@@ -537,7 +573,6 @@ static void viewMessageFunction(int socket)
 
 static void viewAllMessageFunction(int socket)
 {
-
 	int ret; 
 	char c; 
 	char msgMessage[SIZE_GENERIC_COMPLETE_MESSAGE];
@@ -557,18 +592,18 @@ static void viewAllMessageFunction(int socket)
 		{
 			errFunction("Errore in lettura messaggio da bacheca"); 
 		}
-		printPersonalMessage(msgMessage); 
+		printGenericMessage(msgMessage); 
 	}
 
-	
+	fflush(stdout); 
 
 	//in che caso potrebbe andare male
 	//serve un timeout e mandare command failure o qualcosa
 	//SIVULLAPRE QUESTO PUNTO
-	if(readCom(socket,&c) == -1)
-	{
-		errFunction("Errore di scrittura sulla socket"); 
-	}
+	//if(readCom(socket,&c) == -1)
+	//{
+		//errFunction("Errore di scrittura sulla socket"); 
+	//}
 	
 }
 
@@ -601,7 +636,7 @@ void clientFunc(int socket)
 	}
 	
 	while(1){
-		printf("Menu\n"); 
+		printf("\nMenu\n"); 
 		printf("1:Inserire un nuovo messaggio\n"); 
 		printf("2:Visualizzare messaggi\n"); 
 		printf("3:Visualizzare tutti i messagi\n"); 
