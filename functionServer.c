@@ -10,6 +10,8 @@
 #include"helper.h"
 
 
+char *fileMessages = "back_messages.csv";
+
 int readCom(int socket, char *command)
 {
 	return read(socket, command, 1); 
@@ -490,6 +492,8 @@ static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *userna
 
 static void delMessageFunction(int socket, BulletinBoard *myBoard, char *username)
 {
+	//mi azzardo a falrlo
+	FILE *file = fopen(fileMessages, "r+"); 
 	int ret; 
 	char c; 
 	char idMessage[SIZE_MESSAGE_ID+1]; 
@@ -521,10 +525,8 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
     
    
     
-    if(myBoard->msgCount< strtol(idMessage, NULL, 10 ) )
-    {
-    	printf("qo"); 
-    	fflush(stdout); 
+    if(myBoard->idCount< strtol(idMessage, NULL, 10 ) )
+    { 
     	if( writeCom(socket, COMMAND_FAILURE) == -1)
     	{
     		errFunction("Errore di scrittura sulla socket"); 
@@ -532,14 +534,14 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
     }else{
     	if(delMessageUser(myBoard, username, idMessage) == -1)
     	{
-    		printf("qa!"); 
-    		fflush(stdout); 
+    		 
     		if (writeCom(socket, COMMAND_FAILURE) == -1)
     		{
     			errFunction("Errore di scrittura sulla socket"); 
     		}
     	}else
     	{
+    		delMessageFile(file,idMessage);
     		if(writeCom(socket, COMMAND_SUCCESS) == -1)
     		{
     			errFunction("Errore di scrittura sulla socket"); 

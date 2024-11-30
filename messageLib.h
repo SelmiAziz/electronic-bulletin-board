@@ -32,12 +32,14 @@ typedef struct user{
 typedef struct bulletinBoard{
 	User *head;
 	int msgCount; 
+	int idCount; 
 }BulletinBoard; 
 
 
 Message *createMessage(char *object, char *text, char *id); 
 BulletinBoard *createBulletinBoard(); 
 User *createUser(char *username, char *password); 
+void delMessageFile(FILE *f, char *idMessage);
 void printMessage(Message *myMessage); 
 void printUser(User *myUser); 
 void addUser(BulletinBoard *myBoard, char *username, char *password); 

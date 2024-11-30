@@ -102,8 +102,8 @@ void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *
 	char idMessage[SIZE_MESSAGE_ID+1]; 
 	User *current = myBoard->head; 
 	
-	snprintf(idMessage, sizeof(idMessage), "%06d",++myBoard->msgCount); 
-	
+	snprintf(idMessage, sizeof(idMessage), "%06d",++myBoard->idCount); 
+	++myBoard->msgCount; 
 	
 	while(current){
 		if(strcmp(current->username, username) == 0){
@@ -163,6 +163,86 @@ int delMessageUser(BulletinBoard *myBoard, char *username, char *idMessage){
 	return -1; 
 }
 
+void putZero(FILE *f, int pos)
+{
+	if (fseek(f, pos, SEEK_SET) != 0) {
+            perror("Errore con fseek");
+            fclose(f);
+        }
+        
+        //when something goes wrong fputc returns EOF 
+        if (fputc('0', f) == EOF) {
+            perror("Errore nella scrittura del carattere");
+            fclose(f);
+        }
+       fseek(f, pos+2, SEEK_SET); 
+
+}
+
+//ATTENZIONE LA LIBRARY DI MESSAGE LIB STA DIVETANDO UN CASINO TROPPA DIPENDENZA DAI FILE BISOGNA DISACCOPIARE LE LIBRARY UNA PER LA LIB IN MEMORIA E UNA PER I FILE E USARE IL SERVER CHE CHIAMA UNA FUNZIONE PER METTERLE IN COMUNICAZIONE
+
+
+void remove_quotes(char *str) {
+	char *src = str, *dst = str; 
+	
+	while(*src)
+	{
+		if(*src != '"')
+		{
+			*dst++ = *src;
+		}
+		src++;
+	}
+	*dst = '\0'; 
+}
+
+int equalIdMessage(char *buffer, char *idMessage)
+{
+		char *token = strtok(buffer,",");
+		char *pen = NULL; 
+		char *last = NULL; 
+		
+		
+		while(token)
+		{
+			pen = last; 
+			last = token; 
+			token = strtok(NULL, ","); 
+		
+		}
+			
+		remove_quotes(pen); 
+
+
+	if(strcmp(idMessage, pen) == 0 )
+	{
+		return 0; 
+	
+	}
+	return -1; 
+
+}
+
+//this goes to a separate file
+void delMessageFile(FILE *f , char *idMessage)
+{
+	int pos; 
+	char buffer[SIZE]; 
+	
+	while(fgets(buffer, sizeof(buffer), f) )
+	{
+		
+		if(equalIdMessage(buffer, idMessage) == 0)
+		{
+			pos = ftell(f) -2; 
+			putZero(f,pos); 
+		
+		}
+	}
+
+}
+
+
 
 
 void printUserMessage(BulletinBoard *myBoard, char *username)
@@ -182,6 +262,7 @@ void printUserMessage(BulletinBoard *myBoard, char *username)
 }
 
 //this stuff is awful i know
+//you should do it in an appropriate function present in the file functionsever
 void fillUsers(BulletinBoard *myBoard, char *file)
 {
 	char buffUser[SIZE_USERNAME]; 
@@ -242,6 +323,8 @@ void addMessageUserOld(BulletinBoard *myBoard, char *username, char *object, cha
 
 }
 
+
+//also this stuff
 void fillMessagesUsers(BulletinBoard *myBoard, char *file)
 {
 	char buffUser[SIZE_USERNAME+1]; 
@@ -249,7 +332,8 @@ void fillMessagesUsers(BulletinBoard *myBoard, char *file)
 	char buffText[SIZE_TEXT+1]; 
 	char buffIdMessage[SIZE_MESSAGE_ID+1]; 
 	char buff[SIZE_BUFF]; 
-	int v; 
+	int v;
+	int numTemp;  
 	
 	
  	FILE *myFile = fopen(file, "r"); 
@@ -265,6 +349,8 @@ void fillMessagesUsers(BulletinBoard *myBoard, char *file)
 		if(v!= 0){
 			addMessageUserOld(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
 			++myBoard->msgCount; 
+			numTemp = strtol(buffIdMessage, NULL, 10); 
+			if(numTemp > myBoard->idCount) myBoard->idCount = numTemp; 
 		}
 	}
 }
@@ -279,6 +365,7 @@ BulletinBoard *createBulletinBoard()
 	}
 	myBoard->head = NULL; 
 	myBoard->msgCount = 0; 
+	myBoard->idCount = 0; 
 	return myBoard; 
 }
 

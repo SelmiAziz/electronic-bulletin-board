@@ -332,6 +332,7 @@ static void delMessageFunction(int socket)
 	{
 		errFunction("Errore di lettura id messagio da eliminare"); 
 	}
+	while(getchar() != '\n'); 
 
 	if (writeBuffSocket(socket, idMessage, SIZE_MESSAGE_ID) == -1)
 	{

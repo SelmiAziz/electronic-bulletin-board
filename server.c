@@ -8,6 +8,8 @@
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <signal.h>
+#include <sys/time.h>
 
 #include "messageLib.h"
 #include "helper.h"
@@ -24,6 +26,89 @@ int receiveTimeout(int socket){
 
 }
 
+
+int controlRow(char *buffer)
+{
+	char *pt = strdup(buffer); 
+	char *token = strtok(pt, ","); 
+	char *last = NULL; 
+	
+	while(token)
+	{	
+		last = token; 
+		token = strtok(NULL, ","); 
+	
+	}
+
+	if(*last ==  '0') return 0; 
+
+	free(pt); 
+	pt = NULL; 
+	return -1; 
+
+}
+
+void copiaFile(const char* fileSorgente, const char* fileDestinazione) {
+    FILE *sorgente, *destinazione;
+    char buffer[1024]; // Buffer temporaneo
+    size_t bytesRead;
+
+    // Apri i file
+    sorgente = fopen(fileSorgente, "r");
+    if (sorgente == NULL) {
+        perror("Errore nell'aprire il file sorgente");
+        exit(EXIT_FAILURE);
+    }
+
+    destinazione = fopen(fileDestinazione, "w");
+    if (destinazione == NULL) {
+        perror("Errore nell'aprire il file destinazione");
+        fclose(sorgente);
+        exit(EXIT_FAILURE);
+    }
+
+    // Copia i contenuti
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), sorgente)) > 0) {
+        fwrite(buffer, 1, bytesRead, destinazione);
+    }
+
+    // Chiudi i file
+    fclose(sorgente);
+    fclose(destinazione);
+
+   
+}
+
+
+void eliminateAllZeroRows(char *file)
+{
+	char buffer[SIZE]; 
+	
+	FILE *f = fopen(file, "r+");
+	FILE *newf = fopen("file_shadow.csv", "w+"); 
+	
+	rewind(f); 
+	while(fgets(buffer, SIZE, f))
+	{
+		printf("Ho letto %s\n", buffer); 
+		if(controlRow(buffer) != 0)
+		{
+			printf("sto scrivendo akab %s", buffer); 
+			fprintf(newf, "%s", buffer); 
+		}
+	
+	}
+	fflush(newf);
+	fclose(newf); 
+
+}
+
+
+void funzionePeriodica(int signum) {
+
+   eliminateAllZeroRows("back_messages.csv"); 
+   copiaFile("file_shadow.csv", "back_messages.csv"); 
+}
 
 int main(int arcv, char *argv[]){
 	int listSocket; 
@@ -43,6 +128,25 @@ int main(int arcv, char *argv[]){
 	fillUsers(myBoard, fileUsers); 
 	fillMessagesUsers(myBoard,fileMessages);
 	
+	
+	//STO FISSANDO UN TIMERR PER FAR PULIRE IL FILE OGNI 5 Secondi Usando SIGALARM
+	
+	struct itimerval timer;
+
+    // Configura il timer: intervallo di 5 secondi
+    //DA METTERE DELLE FLAG
+    timer.it_value.tv_sec = 5;     // Primo trigger dopo 5 secondi
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 5; // Ripetizione ogni 5 secondi
+    timer.it_interval.tv_usec = 0;
+
+    // Associa il segnale SIGALRM alla funzionePeriodica
+    signal(SIGALRM, funzionePeriodica);
+
+    // Avvia il timer
+    setitimer(ITIMER_REAL, &timer, NULL);
+	
+
 	
 	
 	if( (listSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0){

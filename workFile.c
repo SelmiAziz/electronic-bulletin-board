@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<string.h>
+#include<stdlib.h>
 
 #define SIZE 1024
 
@@ -81,7 +82,8 @@ void putZeroMain(FILE *f , char *idMessage)
 
 int controlRow(char *buffer)
 {
-	char *token = strtok(buffer, ","); 
+	char *pt = strdup(buffer); 
+	char *token = strtok(pt, ","); 
 	char *last = NULL; 
 	
 	while(token)
@@ -91,9 +93,10 @@ int controlRow(char *buffer)
 	
 	}
 
-
-	printf("sto confrontando %s\n", last); 
 	if(strcmp(last , "0") == 0) return 0; 
+	
+	free(pt); 
+	pt = NULL; 
 	return -1; 
 
 }
@@ -110,7 +113,7 @@ void eliminateAllZeroRows(FILE *f)
 		printf("Ho letto %s\n", buffer); 
 		if(controlRow(buffer) != 0)
 		{
-			printf("sto scrivendo"); 
+			printf("sto scrivendo %s", buffer); 
 			fprintf(newf, "%s\n", buffer); 
 		}
 	
