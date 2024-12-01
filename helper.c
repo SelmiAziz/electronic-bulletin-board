@@ -7,13 +7,16 @@
 
 #include "helper.h"
 
-
+#define SIZE_USERNAME 64
+#define SIZE_PASSWORD 64
 
 void errFunction(char *err){
 	fprintf(stderr, err); 
 	exit(EXIT_FAILURE); 
 }
 
+
+//this function is for the client
 int takeArgumentsClient(int argc, char **argv, char **serverAddress, short int *port){
 	int i = 0; 
 	char *endptr; 

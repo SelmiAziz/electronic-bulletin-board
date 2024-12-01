@@ -612,7 +612,7 @@ static void viewAllMessageFunction(int socket)
 
 
 
-
+//ATTENZIONE IL CLIENT NON HA ANCORA UNA READ FUNCTION DECENTE SI STA APPOGGIANDO A QUELLA TIMEOUT
 void clientFunc(int socket)
 {
 

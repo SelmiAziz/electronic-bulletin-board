@@ -12,6 +12,8 @@
 
 char *fileMessages = "back_messages.csv";
 
+
+//the read and the write has to be in a file so client and server can share it
 int readCom(int socket, char *command)
 {
 	return read(socket, command, 1); 
@@ -454,7 +456,9 @@ static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *userna
 	//forse è meglio implementare una funzione per fare il copia
 	
 	for(int i = 0; i<currentUser->count;i++)
-	{
+	{  
+	
+		//is possible here to put the folllowing six lines i a funciton?
 	
 		copyInBuffer(objBuffer,currentUser->messages[i]->object); 
 		copyInBuffer(textBuffer,currentUser->messages[i]->text);
@@ -519,12 +523,6 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
     
     idMessage[SIZE_MESSAGE_ID] = 0; 
     
-    
-    printf("Messaggio richiesto di eliminare è %s\n", idMessage); 
-    fflush(stdout); 
-    
-   
-    
     if(myBoard->idCount< strtol(idMessage, NULL, 10 ) )
     { 
     	if( writeCom(socket, COMMAND_FAILURE) == -1)
@@ -541,6 +539,7 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
     		}
     	}else
     	{
+    		//this one i like it
     		delMessageFile(file,idMessage);
     		if(writeCom(socket, COMMAND_SUCCESS) == -1)
     		{

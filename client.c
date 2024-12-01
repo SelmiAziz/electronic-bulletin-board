@@ -12,6 +12,8 @@
 #include "functionsClient.h"
 #include "helper.h"
 
+
+//ATTENZIONE CLIENT HAS STILL A NOT GOOD READ BUFFER FUNCTION
 int main(int argc, char *argv[]) {
     int       connSocket; 
     struct    sockaddr_in serverAddress; 
