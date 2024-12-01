@@ -11,11 +11,31 @@
 #define SIZE_USERNAME 64
 #define SIZE_PASSWORD 64
 
+#define SIZE_OBJECT 64 
+#define SIZE_TEXT 160
+
+#define SIZE_ID_MESSAGE 6
+
 void errFunction(char *err){
 	fprintf(stderr, err); 
 	exit(EXIT_FAILURE); 
 }
 
+void removeQuotes(char *str) 
+{
+	char *src = str, *dst = str; 
+	
+	while(*src)
+	{
+		if(*src != '"')
+		{
+			*dst++ = *src;
+		}
+		src++;
+	}
+	*dst = '\0'; 
+
+}
 
 //this function is for the client
 int takeArgumentsClient(int argc, char **argv, char **serverAddress, short int *port){
@@ -58,13 +78,49 @@ int getInput(char *buffer, int maxLen){
 	}
 }
 
-//name is awful i know
-void fill(char *bufferLine, char *buffUsername, char *buffPassword){
+
+void copyToken(char *destBuff,char *strToken, int lenMax)
+{
+	int len = strlen(strToken); 
+
+	if(len > lenMax)
+	{
+		errFunction("Errore dimensione campo non corrisponde a quell'effettiva"); 
+	
+	}
+	strncpy(destBuff,strToken, len); 
+
+	destBuff[len] = '\0'; 
+
+}
+
+void copyTokenWithoutQuotes(char *destBuff,char *strToken, int lenMax)
+{
+	char buffTemp[lenMax]; 
+	int len = strlen(strToken); 
+
+	if(len > lenMax)
+	{
+		errFunction("Errore dimensione campo non corrisponde a quell'effettiva"); 
+	
+	}
+	strncpy(buffTemp,strToken, len); 
+	removeQuotes(buffTemp); 
+	
+	len = len-2; 
+
+	strncpy(destBuff, buffTemp, len); 
+	destBuff[len] = '\0'; 
+
+}
+
+//name is awful i know i named it filleUser
+void fill(char *buffLine, char *buffUsername, char *buffPassword){
 	char buffTemp[SIZE];
 	char *token; 
 	int len;  
 	
-	strncpy(buffTemp, bufferLine, SIZE -1); 
+	strncpy(buffTemp, buffLine, SIZE -1); 
 	buffTemp[SIZE-1] = '\0';
 	
 	token = strtok(buffTemp,"\","); 
@@ -72,88 +128,118 @@ void fill(char *bufferLine, char *buffUsername, char *buffPassword){
 	{
 		errFunction("Errore nessun token"); 
 	}
-	len = strlen(token); 
-	if( len > SIZE_USERNAME)
-	{
-		errFunction("Errore dimensione username del file non corrisponde alla dimensione effettiva"); 
-	}
-	strncpy(buffUsername, token, len); 
-	buffUsername[len] = '\0';
+	copyToken(buffUsername, token, SIZE_USERNAME); 
 	
 	token = strtok(NULL, "\","); 
 	if(token == NULL)
 	{
 		errFunction("Errore nessun token"); 
 	}
-	len = strlen(token); 
-	if( len > SIZE_PASSWORD)
+	copyToken(buffPassword, token, SIZE_PASSWORD); 
+}
+
+
+int convertStringToNumber(char *str)
+{
+	int n;
+	char *endptr; 
+	int success; 
+	
+	n = (int) strtol(str, &endptr, 10); 
+	
+	if(errno == ERANGE)
 	{
-		errFunction("Errore dimensione password del file non corrisponde alla dimensione effettiva"); 
+		success = -1; 
+	}else if(str == endptr)
+	{
+		success = -1;
+	}else{
+		success = 0;
 	}
-	strncpy(buffPassword, token, len); 
-	buffPassword[len] = '\0';
-}
+	
+	if(success != 0) return success; 
+	return n; 
 
-void safeCopy(char *dest, const char *src) {
-	if (src != NULL && dest != NULL) {
-    	if (*src == '"') {
-        	src++;
-         }
-         size_t len = strlen(src);
-         if (len > 0 && src[len - 1] == '"') {
-         	len--;
-         }
-         strncpy(dest, src, len);
-         dest[len] = '\0';
-        }
-}
-
-void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, char *buffMessageId, int *v) {
-    char *token;
-
-    token = strtok(l, ",");
-    safeCopy(buffObj, token);
-
-    token = strtok(NULL, ",");
-   	safeCopy(buffText, token);
-
-    token = strtok(NULL, ",");
-   safeCopy(buffUser, token);
-
-    token = strtok(NULL, ",");
-    safeCopy(buffMessageId, token);
-
-    token = strtok(NULL, ",");
-    if (token != NULL) {
-        *v = strtol(token, NULL, 10);
-    }
 }
 
 
 
-//write file for message and for user
 
-int wrUser(char *buffUser, char *buffPassword, char *file){
-	char buff[SIZE_BUFF]; 
+void fillMsg(char *buffLine, char *buffUsername, char *buffObject, char *buffText, char *buffIdMessage, int *presenceBit) {
+
+	char buffTemp[SIZE];
+	char *token; 
+	int len;  
+ 
+ 
+	strncpy(buffTemp, buffLine, SIZE -1); 
+	buffTemp[SIZE-1] = '\0';
+
+	token = strtok(buffTemp, ","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	copyTokenWithoutQuotes(buffObject, token, SIZE_OBJECT+2); 
+	
+	token = strtok(NULL, ","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	copyTokenWithoutQuotes(buffText, token, SIZE_TEXT+2);  
+	
+	token = strtok(NULL, ","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	copyTokenWithoutQuotes(buffUsername, token, SIZE_USERNAME+2); 
+	
+	token = strtok(NULL, ","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	copyTokenWithoutQuotes(buffIdMessage, token, SIZE_ID_MESSAGE+2); 
+	
+	token = strtok(NULL, ","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	*presenceBit = convertStringToNumber(token); 
+	if(*presenceBit == -1)
+	{
+		errFunction("Errore di conversione flag di presenza");
+	}
+}
+
+
+
+void wrUser(char *buffUser, char *buffPassword, char *file){
+	char buff[SIZE]; 
+	
 	FILE *myFile = fopen(file, "a"); 
-	if(myFile == NULL){
-		fprintf(stderr, "Error in opening file\n"); 
-		exit(EXIT_FAILURE); 
+	if(myFile == NULL)
+	{
+		errFunction("Errore in apertura file"); 
 	}
+	
 	sprintf(buff, "\"%s\",\"%s\"\n", buffUser, buffPassword); 
 	fprintf(myFile, "%s", buff); 
 	fclose(myFile); 
-	return 0; 
 }
 
 
-//passandola sotto va a scrive direttamente cercare di fare delle modifiche
+
 void wrMessage(char*buffUser, char *buffObj, char *buffText, char *buffIdMessage, char *file){
-	char buff[SIZE_BUFF]; 
+	char buff[SIZE];
+	
 	FILE *myFile = fopen(file, "a"); 
-	if(myFile == NULL){
-		fprintf(stderr, "Error in opening file\n");
-		exit(EXIT_FAILURE); 
+	if(myFile == NULL)
+	{
+		errFunction("Errore in apertura file\n"); 
 	}
 	sprintf(buff, "\"%s\",\"%s\",\"%s\",\"%s\",1\n", buffObj, buffText, buffUser,buffIdMessage); 
 	fprintf(myFile,buff); 

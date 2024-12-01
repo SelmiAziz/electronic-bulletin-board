@@ -8,6 +8,9 @@
 #define SIZE 1024
 
 
+
+
+
 Message *createMessage(char *object, char *text, char *id)
 {
 	Message *myMessage = malloc(sizeof(Message)); 
@@ -182,19 +185,7 @@ void putZero(FILE *f, int pos)
 //ATTENZIONE LA LIBRARY DI MESSAGE LIB STA DIVETANDO UN CASINO TROPPA DIPENDENZA DAI FILE BISOGNA DISACCOPIARE LE LIBRARY UNA PER LA LIB IN MEMORIA E UNA PER I FILE E USARE IL SERVER CHE CHIAMA UNA FUNZIONE PER METTERLE IN COMUNICAZIONE
 
 
-void remove_quotes(char *str) {
-	char *src = str, *dst = str; 
-	
-	while(*src)
-	{
-		if(*src != '"')
-		{
-			*dst++ = *src;
-		}
-		src++;
-	}
-	*dst = '\0'; 
-}
+
 
 int equalIdMessage(char *buffer, char *idMessage)
 {
@@ -211,7 +202,7 @@ int equalIdMessage(char *buffer, char *idMessage)
 		
 		}
 			
-		remove_quotes(pen); 
+		removeQuotes(pen); 
 
 
 	if(strcmp(idMessage, pen) == 0 )
@@ -331,7 +322,7 @@ void fillMessagesUsers(BulletinBoard *myBoard, char *file)
 	char buffObj[SIZE_OBJECT+1]; 
 	char buffText[SIZE_TEXT+1]; 
 	char buffIdMessage[SIZE_MESSAGE_ID+1]; 
-	char buff[SIZE_BUFF]; 
+	char buff[SIZE]; 
 	int v;
 	int numTemp;  
 	
@@ -343,9 +334,9 @@ void fillMessagesUsers(BulletinBoard *myBoard, char *file)
  		exit(EXIT_FAILURE); 
  	}
  	
-	while(fgets(buff, SIZE_BUFF, myFile))
+	while(fgets(buff, SIZE, myFile))
 	{
-		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v); 
+		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v);
 		if(v!= 0){
 			addMessageUserOld(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
 			++myBoard->msgCount; 
