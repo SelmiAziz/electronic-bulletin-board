@@ -7,6 +7,7 @@
 
 #include "helper.h"
 
+#define SIZE 1024
 #define SIZE_USERNAME 64
 #define SIZE_PASSWORD 64
 
@@ -58,13 +59,39 @@ int getInput(char *buffer, int maxLen){
 }
 
 //name is awful i know
-void fill(char *l, char *buffUser, char *buffPass){
-	char *token = strtok(l, "\""); 
-	strncpy(buffUser, token, strlen(token)); 
-	buffUser[strlen(token)] = 0; 
+void fill(char *bufferLine, char *buffUsername, char *buffPassword){
+	char buffTemp[SIZE];
+	char *token; 
+	int len;  
+	
+	strncpy(buffTemp, bufferLine, SIZE -1); 
+	buffTemp[SIZE-1] = '\0';
+	
+	token = strtok(buffTemp,"\","); 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	len = strlen(token); 
+	if( len > SIZE_USERNAME)
+	{
+		errFunction("Errore dimensione username del file non corrisponde alla dimensione effettiva"); 
+	}
+	strncpy(buffUsername, token, len); 
+	buffUsername[len] = '\0';
+	
 	token = strtok(NULL, "\","); 
-	strncpy(buffPass, token, strlen(token)); 
-	buffPass[strlen(token)] = 0; 
+	if(token == NULL)
+	{
+		errFunction("Errore nessun token"); 
+	}
+	len = strlen(token); 
+	if( len > SIZE_PASSWORD)
+	{
+		errFunction("Errore dimensione password del file non corrisponde alla dimensione effettiva"); 
+	}
+	strncpy(buffPassword, token, len); 
+	buffPassword[len] = '\0';
 }
 
 void safeCopy(char *dest, const char *src) {
@@ -88,10 +115,10 @@ void fillMsg(char *l, char *buffUser, char *buffObj, char *buffText, char *buffM
     safeCopy(buffObj, token);
 
     token = strtok(NULL, ",");
-    safeCopy(buffText, token);
+   	safeCopy(buffText, token);
 
     token = strtok(NULL, ",");
-    safeCopy(buffUser, token);
+   safeCopy(buffUser, token);
 
     token = strtok(NULL, ",");
     safeCopy(buffMessageId, token);
