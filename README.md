@@ -15,13 +15,13 @@ The client can do the following actions:
 
 Once inside the main folder: electronic-bulletin-board.
 
-##Server
+###Server
 
 To compile the server use the following command : make server
 
 To run the server use the following command : make run-server
 
-##Client
+###Client
 
 To compile the client use the following command : make client
 
@@ -29,9 +29,4 @@ To run the client use the following command : make run-client
 
 By default, the client will connect to 127.0.0.1 (localhost) on port 2500. If you want to connect to a different server, you can specify the host and port like this: make run-client HOST=server.address PORT=PortNumber
 
-
-
-## Note
-
-A technical description of the project implementation can be found in the doc folder.
 
