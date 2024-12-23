@@ -6,20 +6,43 @@
 #include<stdlib.h>
 
 
-#include"functionsClient.h"
-#include"helper.h"
+#include "../include/functionsClient.h"
+#include "../include/helper.h"
+#include "../include/protocolUtilis.h"
 
-
-int readCom(int socket, char *command){
-	return read(socket, command, 1); 
+//this function has to be only for the client part
+int takeArgumentsClient(int argc, char **argv, char **serverAddress, short int *port){
+	int i = 0; 
+	char *endptr; 
+	
+	if(argc != 5)
+	{
+		//magari cambiare per avere un'usciata con EXIT_SUCCESS
+		errFunction("Sintassi: eseguibile a indirizzo p porta"); 
+	}
+	
+	while(i < argc -1)
+	{
+		if(strncmp(argv[i+1], "a", 1) == 0)
+		{
+			*serverAddress = argv[++i+1];
+		}
+		else if(strncmp(argv[i+1], "p",1) == 0)
+		{
+			*port = strtol(argv[++i+1], &endptr, 10); 
+			if(*endptr)
+			{
+				errFunction("Porta non riconosciuta");
+			}
+		}
+		i++; 	
+	}
+	return 0; 
 }
 
-int writeCom(int socket, char command){
-	return write(socket, &command, 1); 
-}
 
-//EHM
-static int readTimeout(int fd, void *buffer, size_t total_bytes)
+
+static int readBuffSocket(int fd, void *buffer, size_t total_bytes)
 {
     size_t bytes_read = 0;
     ssize_t result;
@@ -29,13 +52,6 @@ static int readTimeout(int fd, void *buffer, size_t total_bytes)
         result = read(fd, (char *)buffer + bytes_read, total_bytes - bytes_read);
 
         if (result < 0) {
-            if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                attempts++;
-                if (attempts == 10) {
-                    return -1;
-                }
-                continue; 
-            }
             return -1; 
         } else if (result == 0) {
             return 0; 
@@ -47,28 +63,7 @@ static int readTimeout(int fd, void *buffer, size_t total_bytes)
     return bytes_read; 
 }
 
-//questa funzione mi ha provocato problemi
-int writeBuffSocket(int socket, char *buffer, int len)
-{
-	int l,w; 
-	l = len; 
-	while(l > 0)
-	{
 
-		w = write(socket, buffer, l); 
-		if( w <= 0)
-		{
-			if(errno == EINTR) w = 0; 
-			else{
-				return -1; 
-			}
-		}
-		l -= w; 
-		buffer += w; 
-		
-	}
-	return len; 
-}
 
 
 static int checkFormatUsername(char *username)
@@ -126,7 +121,7 @@ static void getValidePassword(char *password){
 	}
 }
 
-//anche questa funzione sembra da helper.c
+
 void padBuff(char *buffer, int len, int maxLen){
 	if(len<maxLen)
 	{
@@ -320,7 +315,7 @@ static void delMessageFunction(int socket)
 {
 	int ret; 
 	char c; 
-	char idMessage[SIZE_MESSAGE_ID+1]; 
+	char idMessage[SIZE_ID_MESSAGE+1]; 
 	
 	if( writeCom(socket, COMMAND_DELETE_MSG) == -1)
 	{
@@ -328,13 +323,13 @@ static void delMessageFunction(int socket)
 	}
 
 	printf("Scrivi Id da eliminare\n"); 
-	if(getInput(idMessage, SIZE_MESSAGE_ID+1) == -1)
+	if(getInput(idMessage, SIZE_ID_MESSAGE+1) == -1)
 	{
 		errFunction("Errore di lettura id messagio da eliminare"); 
 	}
 	while(getchar() != '\n'); 
 
-	if (writeBuffSocket(socket, idMessage, SIZE_MESSAGE_ID) == -1)
+	if (writeBuffSocket(socket, idMessage, SIZE_ID_MESSAGE) == -1)
 	{
 		errFunction("Errore di scrittura sulla socket"); 
 	
@@ -427,14 +422,14 @@ static void printGenericMessage(char *message)
 
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
-	char idBuffer[SIZE_MESSAGE_ID+1]; 
+	char idBuffer[SIZE_ID_MESSAGE+1]; 
 	char authorBuffer[SIZE_USERNAME+1]; 
 	//sarebbe meglio mandare anche un codice con il messaggio in modo da indentificarlo
 	//STA ROBA NON MI PIACE
 	extractField(message,objBuffer,0, SIZE_OBJECT); 
 	extractField(message,textBuffer, SIZE_OBJECT, SIZE_OBJECT + SIZE_TEXT); 
-	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID); 
-	extractField(message,authorBuffer, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID + SIZE_USERNAME); 
+	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE); 
+	extractField(message,authorBuffer, SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE, SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE + SIZE_USERNAME); 
 	
 	
 	printf("\n\nCarattere\n"); 
@@ -465,11 +460,11 @@ static void printPersonalMessage(char *message)
 
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
-	char idBuffer[SIZE_MESSAGE_ID+1]; 
+	char idBuffer[SIZE_ID_MESSAGE+1]; 
 	//sarebbe meglio mandare anche un codice con il messaggio in modo da indentificarlo
 	extractField(message,objBuffer,0, SIZE_OBJECT); 
 	extractField(message,textBuffer, SIZE_OBJECT, SIZE_OBJECT + SIZE_TEXT); 
-	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID); 
+	extractField(message,idBuffer,SIZE_OBJECT + SIZE_TEXT, SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE); 
 	
 	printf("\n\nCarattere\n"); 
 	
@@ -500,7 +495,7 @@ static int numberMessages(int socket)
 	int ret, n; 
 	char numMsgBuff[SIZE_NUM_MSG+1];
 
-	ret = readTimeout(socket, numMsgBuff, SIZE_NUM_MSG) ; 
+	ret = readBuffSocket(socket, numMsgBuff, SIZE_NUM_MSG) ; 
 	
 	if(ret == 0)
 	{
@@ -535,7 +530,7 @@ static void viewMessageFunction(int socket)
 	char numMsgBuff[SIZE_NUM_MSG+1];
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBUffer[SIZE_TEXT+1]; 
-	char idBuffer[SIZE_MESSAGE_ID+1]; 
+	char idBuffer[SIZE_ID_MESSAGE+1]; 
 	char msgMessage[SIZE_PERSONAL_COMPLETE_MESSAGE];
 	 
 
@@ -552,7 +547,7 @@ static void viewMessageFunction(int socket)
 	}
 
 	for(int i = 0; i<n; i++){
-		if(readTimeout(socket, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE) == -1)
+		if(readBuffSocket(socket, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE) == -1)
 		{
 			errFunction("Errore in lettura messaggio da bacheca"); 
 		}
@@ -589,7 +584,7 @@ static void viewAllMessageFunction(int socket)
 
 
 	for(int i = 0; i<n; i++){
-		if(readTimeout(socket, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
+		if(readBuffSocket(socket, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
 		{
 			errFunction("Errore in lettura messaggio da bacheca"); 
 		}

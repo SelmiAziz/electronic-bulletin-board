@@ -1,0 +1,10 @@
+#ifndef COMM_PROTOCOL_SETTINGS_H
+#define COMM_PROTOCOL_SETTINGS_H
+
+#define SIZE_USERNAME 64
+#define SIZE_PASSWORD 64
+#define SIZE_OBJECT 64 
+#define SIZE_TEXT 160
+#define SIZE_ID_MESSAGE 6
+
+#endif

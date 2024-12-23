@@ -2,14 +2,10 @@
 #include<stdlib.h>
 #include<string.h>
 
-#include"messageLib.h"
-#include"helper.h"
+#include "../include/messageLib.h"
+#include "../include/helper.h"
 
 #define SIZE 1024
-
-
-
-
 
 Message *createMessage(char *object, char *text, char *id)
 {
@@ -100,12 +96,10 @@ void addMessage(User *myUser, char *object, char *text, char *idMessage){
 	myUser->messages[myUser->count-1] = myMessage; 
 }
 
-void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *text, char *file){
-	
-	char idMessage[SIZE_MESSAGE_ID+1]; 
+void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *text,char *idMessage){
+	 
 	User *current = myBoard->head; 
 	
-	snprintf(idMessage, sizeof(idMessage), "%06d",++myBoard->idCount); 
 	++myBoard->msgCount; 
 	
 	while(current){
@@ -117,11 +111,9 @@ void addMessageUser(BulletinBoard *myBoard, char *username, char *object, char *
 	if(current){
 		addMessage(current, object, text,idMessage); 
 	}
-	
-	wrMessage(username, object, text, idMessage, file);
-
 
 }
+
 
 //questa elimina dato un indice, è la funzione di livello superiore che se la chiama le fornisce l'indice da eliminare
 void delMessageByIndex(User *myUser, int index){
@@ -166,76 +158,6 @@ int delMessageUser(BulletinBoard *myBoard, char *username, char *idMessage){
 	return -1; 
 }
 
-void putZero(FILE *f, int pos)
-{
-	if (fseek(f, pos, SEEK_SET) != 0) {
-            perror("Errore con fseek");
-            fclose(f);
-        }
-        
-        //when something goes wrong fputc returns EOF 
-        if (fputc('0', f) == EOF) {
-            perror("Errore nella scrittura del carattere");
-            fclose(f);
-        }
-       fseek(f, pos+2, SEEK_SET); 
-
-}
-
-//ATTENZIONE LA LIBRARY DI MESSAGE LIB STA DIVETANDO UN CASINO TROPPA DIPENDENZA DAI FILE BISOGNA DISACCOPIARE LE LIBRARY UNA PER LA LIB IN MEMORIA E UNA PER I FILE E USARE IL SERVER CHE CHIAMA UNA FUNZIONE PER METTERLE IN COMUNICAZIONE
-
-
-
-
-int equalIdMessage(char *buffer, char *idMessage)
-{
-		char *token = strtok(buffer,",");
-		char *pen = NULL; 
-		char *last = NULL; 
-		
-		
-		while(token)
-		{
-			pen = last; 
-			last = token; 
-			token = strtok(NULL, ","); 
-		
-		}
-			
-		removeQuotes(pen); 
-
-
-	if(strcmp(idMessage, pen) == 0 )
-	{
-		return 0; 
-	
-	}
-	return -1; 
-
-}
-
-//this goes to a separate file
-void delMessageFile(FILE *f , char *idMessage)
-{
-	int pos; 
-	char buffer[SIZE]; 
-	
-	while(fgets(buffer, sizeof(buffer), f) )
-	{
-		
-		if(equalIdMessage(buffer, idMessage) == 0)
-		{
-			pos = ftell(f) -2; 
-			putZero(f,pos); 
-		
-		}
-	}
-
-}
-
-
-
-
 void printUserMessage(BulletinBoard *myBoard, char *username)
 {
 	User *myUser = findUser(myBoard, username); 
@@ -251,27 +173,6 @@ void printUserMessage(BulletinBoard *myBoard, char *username)
 		printf("L'utente non dispone di messagi\n"); 
 	}
 }
-
-//this stuff is awful i know
-//you should do it in an appropriate function present in the file functionsever
-void fillUsers(BulletinBoard *myBoard, char *file)
-{
-	char buffUser[SIZE_USERNAME]; 
-	char buffPass[SIZE_PASSWORD]; 
-	char buff[SIZE]; 
-	
-	FILE *myFile = fopen(file, "r"); 
-	if(myFile == NULL){
-		fprintf(stderr, "Error opening file!"); 
-		exit(EXIT_FAILURE); 
-	
-	}
-	while(fgets(buff, 1024, myFile)){
-		fill(buff,buffUser, buffPass);
-		addUser(myBoard, buffUser, buffPass); 
-	} 
-	fclose(myFile); 
-} 
 
 int checkUserPass(BulletinBoard *myBoard, char *username, char *password)
 {
@@ -293,56 +194,6 @@ void visualizeUsers(BulletinBoard *myBoard)
 		printf("Presente user %s\n", current->username); 
 		printUser(current); 
 		current = current->next; 
-	}
-}
-
-void addMessageUserOld(BulletinBoard *myBoard, char *username, char *object, char *text, char *idMessage)
-{
-	User *current = myBoard->head; 
-
-	while(current)
-	{
-		if(strcmp(current->username, username) == 0){
-			break; 
-		}
-		current = current->next; 
-	}
-	if(current){
-		addMessage(current, object, text,idMessage); 
-	}
-
-
-}
-
-
-//also this stuff
-void fillMessagesUsers(BulletinBoard *myBoard, char *file)
-{
-	char buffUser[SIZE_USERNAME+1]; 
-	char buffObj[SIZE_OBJECT+1]; 
-	char buffText[SIZE_TEXT+1]; 
-	char buffIdMessage[SIZE_MESSAGE_ID+1]; 
-	char buff[SIZE]; 
-	int v;
-	int numTemp;  
-	
-	
- 	FILE *myFile = fopen(file, "r"); 
- 	if(myFile == NULL
- 	){
- 		fprintf(stderr, "Error opening file\n"); 
- 		exit(EXIT_FAILURE); 
- 	}
- 	
-	while(fgets(buff, SIZE, myFile))
-	{
-		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v);
-		if(v!= 0){
-			addMessageUserOld(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
-			++myBoard->msgCount; 
-			numTemp = strtol(buffIdMessage, NULL, 10); 
-			if(numTemp > myBoard->idCount) myBoard->idCount = numTemp; 
-		}
 	}
 }
 

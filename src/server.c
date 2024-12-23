@@ -11,10 +11,10 @@
 #include <signal.h>
 #include <sys/time.h>
 
-#include "messageLib.h"
-#include "helper.h"
-#include "functionServer.h"
-
+#include "../include/messageLib.h"
+#include "../include/helper.h"
+#include "../include/fileMessageLib.h"
+#include "../include/functionServer.h"
 
 int receiveTimeout(int socket){
 	struct timeval timeout; 
@@ -27,87 +27,72 @@ int receiveTimeout(int socket){
 }
 
 
-int controlRow(char *buffer)
-{
-	char *pt = strdup(buffer); 
-	char *token = strtok(pt, ","); 
-	char *last = NULL; 
-	
-	while(token)
-	{	
-		last = token; 
-		token = strtok(NULL, ","); 
-	
-	}
-
-	if(*last ==  '0') return 0; 
-
-	free(pt); 
-	pt = NULL; 
-	return -1; 
-
-}
-
-void copiaFile(const char* fileSorgente, const char* fileDestinazione) {
-    FILE *sorgente, *destinazione;
-    char buffer[1024]; // Buffer temporaneo
-    size_t bytesRead;
-
-    // Apri i file
-    sorgente = fopen(fileSorgente, "r");
-    if (sorgente == NULL) {
-        perror("Errore nell'aprire il file sorgente");
-        exit(EXIT_FAILURE);
-    }
-
-    destinazione = fopen(fileDestinazione, "w");
-    if (destinazione == NULL) {
-        perror("Errore nell'aprire il file destinazione");
-        fclose(sorgente);
-        exit(EXIT_FAILURE);
-    }
-
-    // Copia i contenuti
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), sorgente)) > 0) {
-        fwrite(buffer, 1, bytesRead, destinazione);
-    }
-
-    // Chiudi i file
-    fclose(sorgente);
-    fclose(destinazione);
-
-   
-}
-
-
-void eliminateAllZeroRows(char *file)
-{
-	char buffer[SIZE]; 
-	
-	FILE *f = fopen(file, "r+");
-	FILE *newf = fopen("file_shadow.csv", "w+"); 
-	
-	rewind(f); 
-	while(fgets(buffer, SIZE, f))
-	{
-		printf("Ho letto %s\n", buffer); 
-		if(controlRow(buffer) != 0)
-		{
-			printf("sto scrivendo akab %s", buffer); 
-			fprintf(newf, "%s", buffer); 
-		}
-	
-	}
-	fflush(newf);
-	fclose(newf); 
-
-}
-
-
 void funzionePeriodica(int signum) {
 
-   eliminateAllZeroRows("back_messages.csv"); 
-   copiaFile("file_shadow.csv", "back_messages.csv"); 
+   eliminateZeroPresence("data/back_messages.csv","data/file_shadow.csv"); 
+   copyFile("data/file_shadow.csv", "data/back_messages.csv"); 
+}
+
+
+
+//PARTE INERENTE AI FILE
+void fillUsersFromFile(BulletinBoard *myBoard, char *file)
+{
+	char buffUser[SIZE_USERNAME]; 
+	char buffPass[SIZE_PASSWORD]; 
+	char buff[SIZE]; 
+	
+	FILE *myFile = fopen(file, "r"); 
+	if(myFile == NULL){
+		fprintf(stderr, "Error opening file!"); 
+		exit(EXIT_FAILURE); 
+	
+	}
+	while(fgets(buff, 1024, myFile)){
+		fillUser(buff,buffUser, buffPass);
+		printf("Sto prendendo %s %s\n", buffUser, buffPass); 
+		fflush(stdout);
+		addUser(myBoard, buffUser, buffPass); 
+	} 
+	fclose(myFile); 
+}
+
+//STO PER USARE UNA FUNZIONE CHE IN REALTÀ USA ANCHE FILEMESSAGELIB.C RIMETTERE TUTTO APPOSTO 
+
+
+
+void fillMessagesFromFile(BulletinBoard *myBoard, char *file)
+{
+	char buffUser[SIZE_USERNAME+1]; 
+	char buffObj[SIZE_OBJECT+1]; 
+	char buffText[SIZE_TEXT+1]; 
+	char buffIdMessage[SIZE_ID_MESSAGE+1]; 
+	char buff[SIZE]; 
+	int v;
+	int numTemp;  
+	
+	
+ 	FILE *myFile = fopen(file, "r"); 
+ 	if(myFile == NULL
+ 	){
+ 		fprintf(stderr, "Error opening file"); 
+ 		exit(EXIT_FAILURE); 
+ 	}
+ 	
+	while(fgets(buff, SIZE, myFile))
+	{
+		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v);
+		if(v!= 0){
+			//il nome non mi piace
+			addMessageUser(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
+			numTemp = convertStringToNumber(buffIdMessage); 
+			if(numTemp > myBoard->idCount) myBoard->idCount = numTemp; 
+		}
+	}
+	fclose(myFile); 
+
+
+
 }
 
 int main(int arcv, char *argv[]){
@@ -119,14 +104,16 @@ int main(int arcv, char *argv[]){
 	int s_size; //scoprire che roba è questa
 	ThreadData *tData; 
 	int port = 2500; 
-	char *fileUsers = "back_users.csv"; 
-	char *fileMessages = "back_messages.csv"; 
+	//si dovrebbe specificare tutto in un file
+	char *fileUsers = "data/back_users.csv"; 
+	char *fileMessages = "data/back_messages.csv"; 
 	BulletinBoard *myBoard = createBulletinBoard(); 
 	
 	
 	//devo trovare il modo di specificare il file che intendo usare
-	fillUsers(myBoard, fileUsers); 
-	fillMessagesUsers(myBoard,fileMessages);
+	//le modfiche che sto apportando sono in questa parte
+	fillUsersFromFile(myBoard,fileUsers); 
+	fillMessagesFromFile(myBoard,fileMessages);
 	
 	
 	//STO FISSANDO UN TIMERR PER FAR PULIRE IL FILE OGNI 5 Secondi Usando SIGALARM

@@ -1,24 +1,17 @@
-#define SIZE 1024
+#ifndef COMM_SERVER_CLIENT_CONFIG_H
+#define COMM_SERVER_CLIENT_CONFIG_H
 
-//eh qui sta un problema dovuto al fatto che ho message che intende due cose
-//ma è uguale o almeno sta uno a uno al CODE_MESSAGE
+#include"commFieldsConfig.h"
+
+
 #define SIZE_NUM_MSG 16
-
-
-#define SIZE_USERNAME 64
-#define SIZE_PASSWORD 64
 
 #define SIZE_AUTH_MESSAGE (SIZE_USERNAME + SIZE_PASSWORD )
 
-#define SIZE_OBJECT 64
-#define SIZE_TEXT 160
-
-#define SIZE_MESSAGE_ID 6
-
 #define SIZE_MSG_MESSAGE (SIZE_OBJECT + SIZE_TEXT)
 
-#define SIZE_PERSONAL_COMPLETE_MESSAGE ( SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID)
-#define SIZE_GENERIC_COMPLETE_MESSAGE ( SIZE_USERNAME + SIZE_OBJECT + SIZE_TEXT + SIZE_MESSAGE_ID)
+#define SIZE_PERSONAL_COMPLETE_MESSAGE ( SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE)
+#define SIZE_GENERIC_COMPLETE_MESSAGE ( SIZE_USERNAME + SIZE_OBJECT + SIZE_TEXT + SIZE_ID_MESSAGE)
 
 
 
@@ -44,5 +37,5 @@
 
 #define COMMAND_FINISH_ATTEMPTS 0x15
 
-void clientFunc(int socket); 
 
+#endif

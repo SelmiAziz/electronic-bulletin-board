@@ -9,8 +9,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "functionsClient.h"
-#include "helper.h"
+#include "../include/functionsClient.h"
+#include "../include/helper.h"
 
 
 //ATTENZIONE CLIENT HAS STILL A NOT GOOD READ BUFFER FUNCTION

@@ -6,50 +6,21 @@
 #include<pthread.h>
 #include <unistd.h>   
 
-#include"functionServer.h"
-#include"helper.h"
+#include "../include/functionServer.h"
+#include "../include/helper.h"
+#include "../include/fileMessageLib.h"
+#include "../include/protocolUtilis.h"
 
 
 char *fileMessages = "back_messages.csv";
 
-
-//the read and the write has to be in a file so client and server can share it
-int readCom(int socket, char *command)
-{
-	return read(socket, command, 1); 
-}
-
-int writeCom(int socket, char command)
-{
-	return write(socket, &command, 1); 
-}
-
-int writeBuffSocket(int socket, char *buffer, int len)
-{
-	int l,w; 
-	l = len; 
-	while(l > 0)
-	{
-
-		w = write(socket, buffer, l); 
-		if( w <= 0)
-		{
-			if(errno == EINTR) w = 0; 
-			else{
-				return -1; 
-			}
-		}
-		l -= w; 
-		buffer += w; 
-		
-	}
-	return len; 
-}
+//CI SONO DELLE FUNZIONE CHE SONO IN COMUNI SIA AL SERVER E SIA AL CLIENT
 
 
 //la funzione ritorna -1 errno invariato errore di lettura
 //la funzione ritorna 0 canale chiuso
 //la funzione ritorna -1 errno uguale a EWOULDBLOCK oppure EAGAIN errore di timeout
+//deve essere sviluppata una funzione read per il client che non abbia Timeout
 static int readTimeout(int fd, void *buffer, size_t total_bytes)
 {
     size_t bytes_read = 0;
@@ -78,15 +49,6 @@ static int readTimeout(int fd, void *buffer, size_t total_bytes)
     return bytes_read; 
 }
 
-//pure unpadding potrei tranquillamente metterla insieme a helper.c o cose del genere
-void unpadding(char *buff, int len)
-{
-	for(int i = strlen(buff)-1; i>0; i--){
-		if(buff[i] != ' ') break; 
-		buff[i] = '\0'; 
-	}
-
-}
 
 void padBuff(char *buffer, int len, int maxLen){
 	if(len<maxLen)
@@ -97,7 +59,7 @@ void padBuff(char *buffer, int len, int maxLen){
 }
 
 
-//questa funzione potrebbe tranquillamante andare con un file con buil e padding ste cose qua
+//questa funzione potrebbe tranquillamante andare con un file con build e padding ste cose qua
 void extract2Message(char *s, char *str1, char *str2, int l1, int l2) 
 {
     int i, l = 0; 
@@ -188,9 +150,9 @@ static void subFunctionServer(int socket,BulletinBoard *myBoard, char *username,
             break;
         }
     }
+    //QUESTO PUNTO PUURE È DA SISTEMARE
     addUser(myBoard, username, password); 
-    wrUser(username, password, "back_users.csv"); 
-    sleep(5); 
+    writeUserFile(username, password, "back_users.csv"); 
 }
 
 
@@ -306,6 +268,7 @@ static int postMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
 	char msgMessage[SIZE_MSG_MESSAGE]; 
+	char idMsgBuffer[SIZE_ID_MESSAGE+1];
 	
  	ret = readTimeout(socket, msgMessage,  SIZE_MSG_MESSAGE); 
  	
@@ -328,10 +291,9 @@ static int postMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 	extractField(msgMessage,objBuffer, 0, SIZE_OBJECT); 
 	extractField(msgMessage,textBuffer,SIZE_OBJECT, SIZE_OBJECT+SIZE_TEXT); 
 	
-	//use add MEssage User
-	//qua di dovrebbero fare dei controlli così non mi piace affatto
-	//!!!!!ERRRORE DI RESPONSABILITY
-	addMessageUser(myBoard,username,objBuffer, textBuffer, "back_messages.csv");
+	snprintf(idMsgBuffer, sizeof(idMsgBuffer), "%06d",++myBoard->idCount); //magari sta parte la puoi fare dentro messageLib ??
+	addMessageUser(myBoard,username,objBuffer, textBuffer,idMsgBuffer);
+	writeMessageFile(username,objBuffer,textBuffer,idMsgBuffer,"back_messages.csv"); 
 	
 	printUserMessage(myBoard, username);  
 
@@ -341,6 +303,8 @@ static int postMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
 		errFunction("Errore di scrittura sulla socket"); 
 	}
 }
+
+//yes this functions are only for the server but they are funcitons for the comunication ...
 
 void buildPersonalUserMessage(char *msgMessage, char *object, char *text, char *idMessage)
 {
@@ -370,7 +334,7 @@ static void viewAllMessageFunction(int socket, BulletinBoard *myBoard)
 	char msgMessage[SIZE_GENERIC_COMPLETE_MESSAGE]; 
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
-	char idMessageBuffer[SIZE_MESSAGE_ID+1]; 
+	char idMessageBuffer[SIZE_ID_MESSAGE+1]; 
 	char authorBuffer[SIZE_USERNAME+1]; 
 	User *currentUser; 
 	
@@ -401,7 +365,7 @@ static void viewAllMessageFunction(int socket, BulletinBoard *myBoard)
 			
 			padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT); 
 			padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT); 
-			padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_MESSAGE_ID); 
+			padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_ID_MESSAGE); 
 			padBuff(authorBuffer, strlen(authorBuffer), SIZE_USERNAME); 
 			
 			
@@ -435,7 +399,7 @@ static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *userna
 	char msgMessage[SIZE_PERSONAL_COMPLETE_MESSAGE]; 
 	char objBuffer[SIZE_OBJECT+1]; 
 	char textBuffer[SIZE_TEXT+1]; 
-	char idMessageBuffer[SIZE_MESSAGE_ID+1]; 
+	char idMessageBuffer[SIZE_ID_MESSAGE+1]; 
 	
 	//forse quuesta potrebbe tornnare NULL e fare un controllo boh
 	User *currentUser = findUser(myBoard,username); 
@@ -468,7 +432,7 @@ static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *userna
 		
 		padBuff(objBuffer, strlen(objBuffer), SIZE_OBJECT); 
 		padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT); 
-		padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_MESSAGE_ID); 
+		padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_ID_MESSAGE); 
 		
 		
 		
@@ -496,14 +460,13 @@ static void viewMessageFunction(int socket, BulletinBoard *myBoard, char *userna
 
 static void delMessageFunction(int socket, BulletinBoard *myBoard, char *username)
 {
-	//mi azzardo a falrlo
-	FILE *file = fopen(fileMessages, "r+"); 
+
 	int ret; 
 	char c; 
-	char idMessage[SIZE_MESSAGE_ID+1]; 
+	char idMessage[SIZE_ID_MESSAGE+1]; 
 	User *user; 
 	
-	ret = readTimeout(socket, idMessage, SIZE_MESSAGE_ID); 
+	ret = readTimeout(socket, idMessage, SIZE_ID_MESSAGE); 
 	
 	if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
     {
@@ -521,7 +484,7 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
         pthread_exit(NULL); 
     }
     
-    idMessage[SIZE_MESSAGE_ID] = 0; 
+    idMessage[SIZE_ID_MESSAGE] = 0; 
     
     if(myBoard->idCount< strtol(idMessage, NULL, 10 ) )
     { 
@@ -540,7 +503,7 @@ static void delMessageFunction(int socket, BulletinBoard *myBoard, char *usernam
     	}else
     	{
     		//this one i like it
-    		delMessageFile(file,idMessage);
+    		delMessageFile(fileMessages,idMessage);
     		if(writeCom(socket, COMMAND_SUCCESS) == -1)
     		{
     			errFunction("Errore di scrittura sulla socket"); 
@@ -577,7 +540,6 @@ void *worker(void *arg)
 		ret = readCom(socket, &c);
 		if(ret == 0)
 		{
-			//qua si dovrebbe fare un qualcosa tipo 
 			pthread_exit(NULL);  	
 		}else if( ret == -1)
 		{
@@ -590,13 +552,6 @@ void *worker(void *arg)
 			break; 
 		
 			case COMMAND_VIEW_MSG: 
-			//funzione che manda tutti gli oggetti
-			//dopo manda un COMMAND_SUCCESS oppure prima mando il numero (come lo esprimo il numero scusa oppure mando mando fin quando alla fine mando success per dire che ho finito)
-			//ma se gli manda le stringhe che rappresentano i messaggi e i testi come fa a tenerli dentro il sistema il client, costruisce una struttura oppure printa tutto al volo?
-			//meglio mischiarli entrambi
-			//riceve una stringa che è fatta padding per indicare il messaggio in questione
-		
-			//posso chiedere più volte di vedere un messaggio
 				viewMessageFunction(socket,myBoard,username);	
 			break; 
 			
@@ -604,18 +559,10 @@ void *worker(void *arg)
 				viewAllMessageFunction(socket,myBoard); 
 			break; 
 			case COMMAND_POST_MSG: 
-				//attendo n byte per il oggetto del messaggio
-				//attendo m byte per il testo messaggio
-				//mand un success
 				postMessageFunction(socket, myBoard, username); 
 			break; 
 			case COMMAND_DELETE_MSG: 
-				//ricevo una stringa che indica id-messaggio
-				//lo elmino subito oppure aspetto per eliminarlo ?
-				//faccio cancellazione in base all'username
-				//se non lo puoi cancellare allora mandi una flag per dire che tutto è andato male
 				delMessageFunction(socket, myBoard, username); 
-				//elminato mando un success
 			break; 
 			default: 
 				if(writeCom(socket, COMMAND_CLOSE) == -1)
