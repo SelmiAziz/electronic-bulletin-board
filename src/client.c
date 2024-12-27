@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../include/functionsClient.h"
+#include "../include/functionClient.h"
 #include "../include/helper.h"
 
 

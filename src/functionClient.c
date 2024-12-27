@@ -6,7 +6,7 @@
 #include<stdlib.h>
 
 
-#include "../include/functionsClient.h"
+#include "../include/functionClient.h"
 #include "../include/helper.h"
 #include "../include/protocolUtilis.h"
 
@@ -559,6 +559,24 @@ static void viewMessageFunction(int socket)
 	//in che caso potrebbe andare male
 	//serve un timeout e mandare command failure o qualcosa
 	//SIVULLAPRE QUESTO PUNTO
+	
+	ret = readCom(socket, &c); 
+
+	if(ret == 0){
+		errFunction("Connessione chiusa dal peer"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dalla socket"); 
+	}	
+	//eeehehehe solito problema ma io faccio funzioni che ritornano erri ma quando sbagli chi oh e come brro non lo so forse non curo l'errore dentro.. non lo so ma se manda roba non riconosciuta
+	switch(c){
+		case COMMAND_SUCCESS: 
+			//printf("Messaggio registrato con successo !!"); 
+			fflush(stdout); 
+			break; 
+		default: 
+			printf("Non so cosa fare aiuto\n");  
+			fflush(stdout);
+	}
 
 }
 
@@ -600,6 +618,24 @@ static void viewAllMessageFunction(int socket)
 	//{
 		//errFunction("Errore di scrittura sulla socket"); 
 	//}
+	
+	ret = readCom(socket, &c); 
+
+	if(ret == 0){
+		errFunction("Connessione chiusa dal peer"); 
+	}else if(ret == -1){
+		errFunction("Errore di lettura dalla socket"); 
+	}	
+	//eeehehehe solito problema ma io faccio funzioni che ritornano erri ma quando sbagli chi oh e come brro non lo so forse non curo l'errore dentro.. non lo so ma se manda roba non riconosciuta
+	switch(c){
+		case COMMAND_SUCCESS: 
+			//printf("Messaggio registrato con successo !!"); 
+			//fflush(stdout); 
+			break; 
+		default: 
+			printf("Non so cosa fare aiuto\n");  
+			fflush(stdout);
+	}
 	
 }
 

@@ -29,8 +29,8 @@ int receiveTimeout(int socket){
 
 void funzionePeriodica(int signum) {
 
-   eliminateZeroPresence("data/back_messages.csv","data/file_shadow.csv"); 
-   copyFile("data/file_shadow.csv", "data/back_messages.csv"); 
+   eliminateZeroPresence(MESSAGES_FILE,SHADOW_FILE); 
+   copyFile(SHADOW_FILE,MESSAGES_FILE); 
 }
 
 
@@ -105,8 +105,8 @@ int main(int arcv, char *argv[]){
 	ThreadData *tData; 
 	int port = 2500; 
 	//si dovrebbe specificare tutto in un file
-	char *fileUsers = "data/back_users.csv"; 
-	char *fileMessages = "data/back_messages.csv"; 
+	char *fileUsers = USERS_FILE; 
+	char *fileMessages = MESSAGES_FILE;
 	BulletinBoard *myBoard = createBulletinBoard(); 
 	
 	
