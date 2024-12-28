@@ -60,3 +60,37 @@ void removeQuotes(char *str)
     *dst = '\0'; 
 }
 
+
+int findEndField(char *f, int lStart, int endMax)
+{ 
+	for(int i = endMax; i >= lStart; i--)
+	{
+		if(f[i] == ' ') return i; 
+	}
+	return endMax; 
+
+}
+
+
+void extractField(char *s,char *str,  int lStart, int lMax)
+{
+	int i ; 
+	int l = 0; 
+	int lEnd = findEndField(s,lStart, lMax); 
+	for( i = lStart; i < lEnd && !(s[i] == ' ' && s[i+1] == ' '); i++)
+	{
+		str[l] = s[i]; 
+		l++;
+	}
+	str[l] = '\0'; 
+}
+
+
+void padBuff(char *buffer, int len, int maxLen){
+	if(len<maxLen)
+	{
+		memset(buffer + len, ' ', maxLen-len); 
+	}
+	buffer[maxLen] = 0; 
+}
+

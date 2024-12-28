@@ -9,7 +9,7 @@ DEFAULT_PORT = 2500
 
 # Compile the client
 client:
-	$(CC) src/helper.c src/protocolUtilis.c src/functionClient.c src/client.c -o $(CLIENT)
+	$(CC) src/helper.c src/protocolUtilis.c src/utilityForFunctionClient.c src/functionClient.c src/client.c -o $(CLIENT)
 
 # Compile the server
 server:
