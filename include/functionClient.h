@@ -6,6 +6,7 @@
 #include "utilityForFunctionClient.h"
 
 void clientFunc(int socket); 
+int takeArgumentsClient(int argc, char **argv, char **serverAddress, short int *port); 
 
 
 #endif

@@ -4,6 +4,7 @@
 #include <unistd.h>        
 #include <netinet/in.h>
 #include <netdb.h>
+#include <signal.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -14,31 +15,33 @@
 
 
 //ATTENZIONE CLIENT HAS STILL A NOT GOOD READ BUFFER FUNCTION
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+ {
     int       connSocket; 
     struct    sockaddr_in serverAddress; 
+    struct    sigaction sa_ignore; 
     char     *serverIp;                        
-	short int port; 
+    short int port; 
 
 
-	takeArgumentsClient(argc, argv, &serverIp, &port); 
-	
+    takeArgumentsClient(argc, argv, &serverIp, &port); 
+    
 
     if ( (connSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
-		errFunction("Errore nella creazione della socket"); 
+		errFunction("Errore in socket creation"); 
     }
 
     memset(&serverAddress, 0, sizeof(serverAddress));
     serverAddress.sin_family      = AF_INET;
     serverAddress.sin_port        = htons(port);
 
-
- 	 if (inet_pton(AF_INET, serverIp, &serverAddress.sin_addr) <= 0) {
-     	errFunction("Errore conversione indrizzo ip"); 
+    //conversione in formato binario
+    if (inet_pton(AF_INET, serverIp, &serverAddress.sin_addr) <= 0) {
+     	errFunction("Error in conversoion ip address"); 
     }
 
     if ( connect(connSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress) ) < 0 ) {
-		errFunction("Errore nella connect"); 
+		errFunction("Error in connect"); 
      }
      
      

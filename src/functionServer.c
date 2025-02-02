@@ -9,9 +9,11 @@
 #include "../include/functionServer.h"
 #include "../include/helper.h"
 #include "../include/fileMessageLib.h"
+#include "../include/messageLib.h"
 #include "../include/protocolUtilis.h"
 #include "../include/utilityForFunctionServer.h"
-
+#include "../include/mutexLib.h"
+#include "../include/serverConfig.h"
 
 char *fileMessages = MESSAGES_FILE;
 
@@ -28,29 +30,46 @@ static int postMessageFunction(int client_fd, BulletinBoard *myBoard, char *user
     char idMsgBuffer[SIZE_ID_MESSAGE + 1];
 
     ret = readTimeout(client_fd, msgMessage, SIZE_MSG_MESSAGE,MAX_READ_ATTEMPTS);
-
-    if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+    if ( ret == 0)
     {
-        writeCom(client_fd, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
-        close(client_fd);
-        pthread_exit(NULL); 
+    	close(client_fd);
+        numThreads--; 
+        pthread_exit(NULL);        
+    }
+    if ( ret == -1 && errno == EAGAIN ) 
+    {
+    	ret = writeCom(client_fd, COMMAND_FINISH_ATTEMPTS); 
+        if (ret == -1 && errno == EPIPE)
+        {
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);
+        }
+        if (ret  == -1) 
+        {
+            errFunction("Error writing to socket");
+        }
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);
     }
     if (ret == -1) 
     {
-        if (writeCom(client_fd, COMMAND_CLOSE) == -1)
-        {
-            errFunction("Error writing to socket"); 
-        }
-        close(client_fd);
-        pthread_exit(NULL); 
+    	errFunction("Error reading from socket"); 
     }
+
 
     extractField(msgMessage, objBuffer, 0, SIZE_OBJECT); 
     extractField(msgMessage, textBuffer, SIZE_OBJECT, SIZE_OBJECT + SIZE_TEXT); 
-
     snprintf(idMsgBuffer, sizeof(idMsgBuffer), "%06d", ++myBoard->idCount); 
+    
+    lockMutex(mutexBulletinBoard);
     addMessageUser(myBoard, username, objBuffer, textBuffer, idMsgBuffer);
-    writeMessageFile(username, objBuffer, textBuffer, idMsgBuffer, fileMessages); 
+    unlockMutex(mutexBulletinBoard); 
+    
+    lockMutex(mutexFileMessages); 
+    writeMessageFile(username, objBuffer, textBuffer, idMsgBuffer, MESSAGES_FILE); 
+    unlockMutex(mutexFileMessages); 
 
     printUserMessage(myBoard, username);  
 
@@ -78,6 +97,8 @@ static void viewAllMessageFunction(int client_fd, BulletinBoard *myBoard)
     char idMessageBuffer[SIZE_ID_MESSAGE + 1];
     char authorBuffer[SIZE_USERNAME + 1];
     User *currentUser;
+	
+    lockMutex(mutexBulletinBoard); 
 
     sprintf(numMsgBuff, "%d", myBoard->msgCount);
     padBuff(numMsgBuff, strlen(numMsgBuff), SIZE_NUM_MSG);
@@ -104,15 +125,31 @@ static void viewAllMessageFunction(int client_fd, BulletinBoard *myBoard)
 
             buildGenericUserMessage(msgMessage, objBuffer, textBuffer, idMessageBuffer, authorBuffer);
 
-            if (writeBuffSocket(client_fd, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
+	    ret = writeBuffSocket(client_fd, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE);
+	    if (ret == -1 && errno == EPIPE)
+	    {
+	        close(client_fd);
+        	numThreads--; 
+        	pthread_exit(NULL);  
+	    }
+            if (ret == -1)
             {
                 errFunction("Error writing to socket");
             }
         }
         currentUser = currentUser->next;
     }
+    
+    unlockMutex(mutexBulletinBoard); 
 
-    if (writeCom(client_fd, COMMAND_SUCCESS) == -1)
+    ret = writeCom(client_fd, COMMAND_SUCCESS); 
+    if (ret == -1 && errno == EPIPE)
+    {
+    	close(client_fd);
+        numThreads--; 
+        pthread_exit(NULL);    
+    }
+    if (ret == -1)
     {
         errFunction("Error writing to socket");
     }
@@ -130,32 +167,22 @@ static void viewMessageFunction(int client_fd, BulletinBoard *myBoard, char *use
     char textBuffer[SIZE_TEXT + 1];
     char idMessageBuffer[SIZE_ID_MESSAGE + 1];
 
+    lockMutex(mutexBulletinBoard); 
+    
     User *currentUser = findUser(myBoard, username);
-    if (currentUser == NULL)
-    {
-        // Uncomment this section if required for specific handling when the user is not found.
-        /*
-        if (writeCom(client_fd, COMMAND_CLOSE) == -1)
-        {
-            errFunction("Error writing to socket");
-        }
-        */
-    }
-    else
-    {
-        // Uncomment this section if needed for specific handling when the user is found.
-        /*
-        if (writeCom(client_fd, COMMAND_SUCCESS) == -1)
-        {
-            errFunction("Error writing to socket");
-        }
-        */
-    }
+    
 
     sprintf(numMsgBuff, "%d", currentUser->count);
     padBuff(numMsgBuff, strlen(numMsgBuff), SIZE_NUM_MSG);
 
-    if (writeBuffSocket(client_fd, numMsgBuff, SIZE_NUM_MSG) == -1)
+    ret = writeBuffSocket(client_fd, numMsgBuff, SIZE_NUM_MSG); 
+    if (ret  == -1 && errno == EPIPE)
+    {
+    	close(client_fd);
+        numThreads--; 
+        pthread_exit(NULL);      
+    }
+    if (ret  == -1)
     {
         errFunction("Error writing to socket");
     }
@@ -171,16 +198,31 @@ static void viewMessageFunction(int client_fd, BulletinBoard *myBoard, char *use
         padBuff(idMessageBuffer, strlen(idMessageBuffer), SIZE_ID_MESSAGE);
 
         buildPersonalUserMessage(msgMessage, objBuffer, textBuffer, idMessageBuffer);
-        printf("%s Sto inviando", msgMessage); 
-        fflush(stdout);
+      
 
-        if (writeBuffSocket(client_fd, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE) == -1)
+	ret = writeBuffSocket(client_fd, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE); 
+	if ( ret == -1 && errno == EPIPE)
+	{
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);   	
+	}
+        if ( ret == -1)
         {
             errFunction("Error writing to socket");
         }
     }
+	
+    unlockMutex(mutexBulletinBoard); 
 
-    if (writeCom(client_fd, COMMAND_SUCCESS) == -1)
+    ret = writeCom(client_fd, COMMAND_SUCCESS); 
+    if (ret == -1 && errno == EPIPE)
+    {
+    	close(client_fd);
+        numThreads--; 
+        pthread_exit(NULL);       	
+    }
+    if (ret == -1)
     {
         errFunction("Error writing to socket");
     }
@@ -201,33 +243,55 @@ static void delMessageFunction(int client_fd, BulletinBoard *myBoard, char *user
 
     ret = readTimeout(client_fd, idMessage, SIZE_ID_MESSAGE,MAX_READ_ATTEMPTS);
 
-    if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+    if ( ret == 0)
     {
-        writeCom(client_fd, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS);
-        close(client_fd);
-        pthread_exit(NULL);
+    	close(client_fd);
+        numThreads--; 
+        pthread_exit(NULL);        
     }
-    if (ret == -1) 
+    if ( ret == -1 && errno == EAGAIN ) 
     {
-        if (writeCom(client_fd, COMMAND_CLOSE) == -1) 
+    	ret = writeCom(client_fd, COMMAND_FINISH_ATTEMPTS); 
+        if (ret == -1 && errno == EPIPE)
+        {
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);
+        }
+        if (ret  == -1) 
         {
             errFunction("Error writing to socket");
         }
-        close(client_fd);
-        pthread_exit(NULL);
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);
     }
+    if (ret == -1) 
+    {
+    	errFunction("Error reading from socket"); 
+    }
+  
 
     idMessage[SIZE_ID_MESSAGE] = 0;
 
     if (myBoard->idCount < convertStringToNumber(idMessage)) 
     { 
-        if (writeCom(client_fd, COMMAND_FAILURE) == -1) 
+    	ret = writeCom(client_fd, COMMAND_FAILURE); 
+    	if (ret  == -1 && errno == EPIPE)
+    	{
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);     	
+    	}
+        if (ret  == -1) 
         {
             errFunction("Error writing to socket");
         }
     } 
     else 
     {
+    	lockMutex(mutexBulletinBoard); 
+    	
         if (delMessageUser(myBoard, username, idMessage) == -1) 
         {
             if (writeCom(client_fd, COMMAND_FAILURE) == -1) 
@@ -237,12 +301,24 @@ static void delMessageFunction(int client_fd, BulletinBoard *myBoard, char *user
         } 
         else 
         {
-            delMessageFile(fileMessages, idMessage);
-            if (writeCom(client_fd, COMMAND_SUCCESS) == -1) 
+            lockMutex(mutexFileMessages); 
+            delMessageFile(MESSAGES_FILE, idMessage);
+            unlockMutex(mutexFileMessages);
+            
+            ret = writeCom(client_fd, COMMAND_SUCCESS); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd);
+            	numThreads--; 
+            	pthread_exit(NULL);   
+            }
+            if (ret == -1) 
             {
                 errFunction("Error writing to socket");
             }
         }
+        
+        unlockMutex(mutexBulletinBoard); 
     }
 }
 
@@ -253,114 +329,187 @@ static void delMessageFunction(int client_fd, BulletinBoard *myBoard, char *user
 // The authFuncServer function allows the client to authenticate: register a new account or log in to an existing one.
 // It makes use of the auxiliary functions subFunctionServer and logFunctionServer.
 
-static void subFunctionServer(int server_fd, BulletinBoard *myBoard, char *username, char *password)
+static void subFunctionServer(int client_fd, BulletinBoard *myBoard, char *username, char *password)
 {
     int ret;
     char authMessage[SIZE_AUTH_MESSAGE];
 
     while (1) 
     {
-        ret = readTimeout(server_fd, authMessage, SIZE_AUTH_MESSAGE, MAX_READ_ATTEMPTS);
-
-        if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+        ret = readTimeout(client_fd, authMessage, SIZE_AUTH_MESSAGE, MAX_READ_ATTEMPTS);
+        
+        if ( ret == 0)
         {
-            if (writeCom(server_fd, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS) == -1) 
+            close(client_fd);
+            numThreads--; 
+            pthread_exit(NULL);        
+        }
+        if ( ret == -1 && errno == EAGAIN ) 
+        {
+            ret = writeCom(client_fd, COMMAND_FINISH_ATTEMPTS); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd);
+            	numThreads--; 
+            	pthread_exit(NULL);
+            }
+            if (ret  == -1) 
             {
                 errFunction("Error writing to socket");
             }
-            close(server_fd);
+            close(client_fd);
+            numThreads--; 
             pthread_exit(NULL);
         }
         if (ret == -1) 
         {
-            if (writeCom(server_fd, COMMAND_CLOSE) == -1) 
-            {
-                errFunction("Error writing to socket");
-            }
-            close(server_fd);
-            pthread_exit(NULL);
+           errFunction("Error reading from socket"); 
         }
 
+	
         extractField(authMessage, username, 0, SIZE_USERNAME);
         extractField(authMessage, password, SIZE_USERNAME, SIZE_USERNAME + SIZE_PASSWORD);
+        
 
+        
+        lockMutex(mutexBulletinBoard); 
+        
         if (findUser(myBoard, username)) 
         {
-            if (writeCom(server_fd, COMMAND_ERR_USER_ALREADY_EXISTS) == -1) 
+            ret = writeCom(client_fd, COMMAND_ERR_USER_ALREADY_EXISTS); 
+            if ( ret == -1 && errno == EPIPE)
+            {
+          	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL);             
+            }
+            if ( ret == -1 ) 
             {
                 errFunction("Error writing to socket");
             }
         } 
         else 
         {
-            if (writeCom(server_fd, COMMAND_SUCCESS) == -1) 
+            ret = writeCom(client_fd, COMMAND_SUCCESS) ;
+            if ( ret == -1 && errno == EPIPE)
+            {
+          	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL);                
+            }
+            if ( ret == -1) 
             {
                 errFunction("Error writing to socket");
             }
+            unlockMutex(mutexBulletinBoard); 
             break;
         }
+        
+        unlockMutex(mutexBulletinBoard); 
     }
 
+    lockMutex(mutexBulletinBoard);
     addUser(myBoard, username, password);
+    unlockMutex(mutexBulletinBoard); 
+    
+    lockMutex(mutexFileUsers); 
     writeUserFile(username, password, USERS_FILE);
+    unlockMutex(mutexFileUsers); 
 }
 
 
 
-static void logFunctionServer(int server_fd, BulletinBoard *myBoard, char *username, char *password)
+static void logFunctionServer(int client_fd, BulletinBoard *myBoard, char *username, char *password)
 {
     char authMessage[SIZE_AUTH_MESSAGE];
     int ret;
 
     while (1) 
     {
-        ret = readTimeout(server_fd, authMessage, SIZE_AUTH_MESSAGE, MAX_READ_ATTEMPTS);
-
-        if (ret == 0 || (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))) 
+        ret = readTimeout(client_fd, authMessage, SIZE_AUTH_MESSAGE, MAX_READ_ATTEMPTS);
+	if ( ret == 0)
+	{
+          	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL);    	
+	}
+        if ( (ret == -1 && errno == EAGAIN )) 
         {
-            if (writeCom(server_fd, (ret == 0) ? COMMAND_CLOSE : COMMAND_FINISH_ATTEMPTS) == -1) 
+            ret = writeCom(client_fd, COMMAND_FINISH_ATTEMPTS); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd);
+            	numThreads--;
+            	pthread_exit(NULL);            
+            }
+            if (ret  == -1) 
             {
                 errFunction("Error writing to socket");
             }
-            close(server_fd);
+            close(client_fd);
+            numThreads--;
             pthread_exit(NULL);
         }
         if (ret == -1) 
         {
-            if (writeCom(server_fd, COMMAND_CLOSE) == -1) 
-            {
-                errFunction("Error writing to socket");
-            }
-            close(server_fd);
-            pthread_exit(NULL);
+           errFunction("Error reading from socket"); 
         }
 
+	
         extractField(authMessage, username, 0, SIZE_USERNAME);
         extractField(authMessage, password, SIZE_USERNAME, SIZE_USERNAME + SIZE_PASSWORD);
-
+        
+	
+	lockMutex(mutexBulletinBoard); 
+	
         if (findUser(myBoard, username) == NULL) 
         {
-            if (writeCom(server_fd, COMMAND_ERR_USER_NOT_FOUND) == -1) 
+            ret = writeCom(client_fd, COMMAND_ERR_USER_NOT_FOUND); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL);             
+       	    
+            }
+            if (ret == -1) 
             {
                 errFunction("Error writing to socket");
             }
+            unlockMutex(mutexBulletinBoard); 
             continue;
         }
         if (checkUserPass(myBoard, username, password)) 
         {
-            if (writeCom(server_fd, COMMAND_ERR_NOT_MATCH_CREDENTIALS) == -1) 
+            ret = writeCom(client_fd, COMMAND_ERR_NOT_MATCH_CREDENTIALS); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL); 
+            }
+            if (ret == -1) 
             {
                 errFunction("Error writing to socket");
             }
         } 
         else 
         {
-            if (writeCom(server_fd, COMMAND_SUCCESS) == -1) 
+            ret = writeCom(client_fd, COMMAND_SUCCESS); 
+            if (ret == -1 && errno == EPIPE)
+            {
+            	close(client_fd); 
+    	    	numThreads--; 
+    	    	pthread_exit(NULL);                
+            }
+            if (ret == -1) 
             {
                 errFunction("Error writing to socket");
             }
+            unlockMutex(mutexBulletinBoard); 
             break;
         }
+       
     }
 }
 
@@ -371,8 +520,15 @@ static void authFuncServer(int client_fd, BulletinBoard *myBoard, char *username
 {
     char c;
     int ret;
-
-    if (writeCom(client_fd, COMMAND_AUTH) == -1) 
+	
+    ret = writeCom(client_fd, COMMAND_AUTH); 
+    if( ret == -1 && errno == EPIPE)
+    {
+    	close(client_fd); 
+    	numThreads--; 
+    	pthread_exit(NULL);     
+    }
+    if (ret ==-1) 
     {
         errFunction("Error writing to socket");
     }
@@ -381,6 +537,11 @@ static void authFuncServer(int client_fd, BulletinBoard *myBoard, char *username
     if (ret == -1) 
     {
         errFunction("Error reading from socket");
+    }else if(ret == 0)
+    {
+    	close(client_fd); 
+    	numThreads--; 
+    	pthread_exit(NULL); 
     }
 
     if (c == COMMAND_SUB) 
@@ -394,7 +555,14 @@ static void authFuncServer(int client_fd, BulletinBoard *myBoard, char *username
     } 
     else 
     {
-        if (writeCom(client_fd, COMMAND_CLOSE) == -1) 
+    	ret = writeCom(client_fd, COMMAND_CLOSE);
+    	if (ret == -1 && errno == EPIPE)
+    	{
+            close(client_fd);  
+            numThreads--;              
+            pthread_exit(NULL);      	
+    	}
+        if (ret == -1) 
         {
             errFunction("Error writing to socket");
         }
@@ -417,12 +585,16 @@ void *worker(void *arg) {
     free(tData);    
     tData = NULL;        
 
+
+    lockMutex(mutexFileUsers);
     authFuncServer(client_fd, myBoard, username, password);       
 
     while(1){        
         ret = readCom(client_fd, &c);        
         if(ret == 0)        
-        {            
+        {   
+       	    close(client_fd); 
+       	    numThreads--;         
             pthread_exit(NULL);  	        
         } else if( ret == -1)        
         {            
@@ -430,7 +602,9 @@ void *worker(void *arg) {
         }                         
 
         switch(c){            
-            case COMMAND_QUIT:                 
+            case COMMAND_QUIT:   
+            	close(client_fd);  
+            	numThreads--;              
                 pthread_exit(NULL);             
             break;                       
 
@@ -450,12 +624,20 @@ void *worker(void *arg) {
                 delMessageFunction(client_fd, myBoard, username);             
             break;              
 
-            default:                 
-                if(writeCom(client_fd, COMMAND_CLOSE) == -1)                
+            default: 
+            	ret = writeCom(client_fd, COMMAND_CLOSE); 
+            	if( ret == -1 && errno == EPIPE)
+            	{
+            	    close(client_fd);  
+            	    numThreads--;              
+                    pthread_exit(NULL);   
+            	}               
+                if( ret == -1)                
                 {                     
                     errFunction("Error writing to socket");                 
                 }                 
-                close(client_fd);                 
+                close(client_fd);
+                numThreads--;                
                 pthread_exit(NULL);         
         }	     
     } 

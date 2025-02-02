@@ -142,6 +142,7 @@ int static equalIdMessage(char *buffer, char *idMessage)
     char *pen = NULL;
     char *last = NULL;
 
+    //remember id is in the pen field of a line
     while (token)
     {
         pen = last;
@@ -163,13 +164,13 @@ void static zeroPresence(FILE *f, int pos)
 {
     if (fseek(f, pos, SEEK_SET) != 0)
     {
-        perror("Error: Failed to seek file position");
+        errFunction("Error: Failed to seek file position");
         fclose(f);
     }
 
     if (fputc('0', f) == EOF)
     {
-        perror("Error: Failed to write zero presence flag");
+        errFunction("Error: Failed to write zero presence flag");
         fclose(f);
     }
     fseek(f, pos + 2, SEEK_SET);
@@ -309,5 +310,8 @@ void eliminateZeroPresence(char *file, char *fileShadow)
     fflush(newf);
     fclose(newf);
 }
+
+
+
 
 

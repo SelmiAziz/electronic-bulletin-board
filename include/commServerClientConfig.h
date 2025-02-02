@@ -19,8 +19,7 @@
 #define COMMAND_LOG    0x02
 #define COMMAND_SUB    0x03
 
-//sostituire il fail in alcuni casa con resend data 
-//i tenativi di quanti farli e meglio averli nel server
+
 #define COMMAND_ERR_USER_NOT_FOUND    0x04
 #define COMMAND_ERR_NOT_MATCH_CREDENTIALS     0x05
 #define COMMAND_ERR_USER_ALREADY_EXISTS 0x06

@@ -64,15 +64,23 @@ static void loginFunctionClient(int server_fd, char *username, char *password){
         
         buildMessage(authMessage, username, password,SIZE_AUTH_MESSAGE); 
        
-        if(writeBuffSocket(server_fd, authMessage, SIZE_AUTH_MESSAGE) == -1)
-        {
-            errFunction("Write error on the server socket"); 
-        }
+        ret = writeBuffSocket(server_fd, authMessage, SIZE_AUTH_MESSAGE); 
+        if (ret == -1 && errno == EPIPE)
+    	{
+    	     close(server_fd); 
+             errFunction("Connection closed by server"); 
+    	}
+    	if( ret == -1)
+    	{
+             close(server_fd); 
+             errFunction("Error writing to server_fd");
+   	} 
 
         ret = readCom(server_fd, &c); 
         
         if(ret == 0){
-            errFunction("Connection closed by the peer"); 
+            close(server_fd); 
+            errFunction("Connection closed by the server"); 
         } else if(ret == -1){
             errFunction("Read error from the server socket"); 
         }
@@ -88,12 +96,19 @@ static void loginFunctionClient(int server_fd, char *username, char *password){
                 printf("Credentials mismatch, please enter correct credentials\n"); 
                 break; 
             default: 
-                if(writeCom(server_fd, COMMAND_CLOSE) == -1)
-                {
-                    errFunction("Write error on the server socket"); 
-                }
-                close(server_fd);
-                exit(EXIT_SUCCESS); 
+                ret = writeCom(server_fd, COMMAND_CLOSE); 
+            	if (ret == -1 && errno == EPIPE)
+            	{
+                    close(server_fd); 
+                    errFunction("Connection closed by server"); 
+            	}
+            	if( ret == -1)
+            	{
+            	    close(server_fd); 
+                    errFunction("Error writing to server_fd");
+            	}
+            	close(server_fd); 
+            	errFunction("Command not recognized");
         }
         if(c == COMMAND_SUCCESS) break; 
     }
@@ -123,14 +138,22 @@ static void subFunctionClient(int server_fd, char *username, char *password)
 
         buildMessage(authMessage, username, password, SIZE_AUTH_MESSAGE); 
         
-        if(writeBuffSocket(server_fd, authMessage, SIZE_AUTH_MESSAGE) == -1)
-        {
-            errFunction("Write error on the server socket"); 
-        } 
+        ret = writeBuffSocket(server_fd, authMessage, SIZE_AUTH_MESSAGE); 
+        if (ret == -1 && errno == EPIPE)
+    	{
+    	     close(server_fd); 
+             errFunction("Connection closed by server"); 
+    	}
+    	if( ret == -1)
+    	{
+             close(server_fd); 
+             errFunction("Error writing to server_fd");
+   	} 
         
         ret = readCom(server_fd, &c);
         
         if(ret == 0){
+       	    close(server_fd);
             errFunction("Connection closed by the server"); 
         } else if(ret == -1){
             errFunction("Read error from the server socket"); 
@@ -146,12 +169,19 @@ static void subFunctionClient(int server_fd, char *username, char *password)
                 fflush(stdout); 
                 break; 
             default: 
-                if(writeCom(server_fd, COMMAND_CLOSE) == -1)
-                {
-                    errFunction("Write error on the server socket"); 
-                }
-                close(server_fd);
-                exit(EXIT_SUCCESS); 
+            	ret = writeCom(server_fd, COMMAND_CLOSE); 
+            	if (ret == -1 && errno == EPIPE)
+            	{
+                    close(server_fd); 
+                    errFunction("Connection closed by server"); 
+            	}
+            	if( ret == -1)
+            	{
+            	    close(server_fd); 
+                    errFunction("Error writing to server_fd");
+            	}
+            	close(server_fd); 
+            	errFunction("Command not recognized");
         }
         if(c == COMMAND_SUCCESS) break; 
     }
@@ -161,7 +191,9 @@ static void subFunctionClient(int server_fd, char *username, char *password)
 // The user chooses whether they want to register (SUB) or log in (LOG).
 
 
-static void authFunctionClient(char *username, char *password, int server_fd){
+static void authFunctionClient(char *username, char *password, int server_fd)
+{
+    int ret; 
     char c; 
     char buffer[SIZE]; 
     
@@ -174,21 +206,35 @@ static void authFunctionClient(char *username, char *password, int server_fd){
         }
         if(strcmp(buffer, "SUB") == 0)
         {
-            if(writeCom(server_fd, COMMAND_SUB) == -1)
-            {
-                errFunction("Write error on the server socket"); 
-            }
-            
+            ret = writeCom(server_fd, COMMAND_SUB); 
+            if (ret == -1 && errno == EPIPE)
+	    {
+	    	close(server_fd); 
+		errFunction("Connection closed by server"); 
+	    }
+	    if( ret == -1)
+	    {
+		 close(server_fd); 
+		 errFunction("Error writing to server_fd");
+	    }
+	    
             subFunctionClient(server_fd, username, password); 
             loginFunctionClient(server_fd, username, password); 
             break; 
             
         } else if(strcmp(buffer, "LOG") == 0)
         {
-            if(writeCom(server_fd, COMMAND_LOG) == -1)
-            {
-                errFunction("Write error on the server socket"); 
-            }
+            ret =writeCom(server_fd, COMMAND_LOG); 
+            if (ret == -1 && errno == EPIPE)
+	    {
+	    	close(server_fd); 
+		errFunction("Connection closed by server"); 
+	    }
+	    if( ret == -1)
+	    {
+		 close(server_fd); 
+		 errFunction("Error writing to server_fd");
+	    }
             
             loginFunctionClient(server_fd, username, password); 
             break; 
@@ -209,10 +255,19 @@ static void delMessageFunction(int server_fd)
     char c; 
     char idMessage[SIZE_ID_MESSAGE + 1]; 
     
-    if(writeCom(server_fd, COMMAND_DELETE_MSG) == -1)
+    ret = writeCom(server_fd, COMMAND_DELETE_MSG); 
+    if (ret == -1 && errno == EPIPE)
     {
-        errFunction("Write error on the server socket"); 
+    	close(server_fd); 
+        errFunction("Connection closed by server"); 
     }
+    if( ret == -1)
+    {
+         close(server_fd); 
+         errFunction("Error writing to server_fd");
+    }
+
+
 
     printf("Enter ID of the message to delete\n"); 
     if(getInput(idMessage, SIZE_ID_MESSAGE + 1) == -1)
@@ -221,15 +276,23 @@ static void delMessageFunction(int server_fd)
     }
     while(getchar() != '\n'); 
 
-    if(writeBuffSocket(server_fd, idMessage, SIZE_ID_MESSAGE) == -1)
+    ret = writeBuffSocket(server_fd, idMessage, SIZE_ID_MESSAGE); 
+    if (ret == -1 && errno == EPIPE)
     {
-        errFunction("Write error on the server socket"); 
+    	close(server_fd); 
+        errFunction("Connection closed by server"); 
+    }
+    if( ret == -1)
+    {
+         close(server_fd); 
+         errFunction("Error writing to server_fd");
     }
 
     ret = readCom(server_fd, &c); 
 
     if(ret == 0){
-        errFunction("Connection closed by the peer"); 
+    	close(server_fd); 
+        errFunction("Connection closed by the server"); 
     } else if(ret == -1){
         errFunction("Read error from the server socket"); 
     }    
@@ -242,12 +305,20 @@ static void delMessageFunction(int server_fd)
             printf("Message deleted successfully");
             break; 
         default:  
-            if(writeCom(server_fd, COMMAND_CLOSE) == -1)
+            ret = writeCom(server_fd, COMMAND_CLOSE); 
+            if (ret == -1 && errno == EPIPE)
             {
-                errFunction("Write error on the server socket"); 
+                close(server_fd); 
+                errFunction("Connection closed by server"); 
             }
-            close(server_fd);
-            exit(EXIT_SUCCESS); 
+            if( ret == -1)
+            {
+            	close(server_fd); 
+                errFunction("Error writing to server_fd");
+            }
+            close(server_fd); 
+            errFunction("Command not recognized");
+
     }
 }
 
@@ -263,9 +334,16 @@ static void postMessageFunction(int server_fd)
     
     char msgMessage[SIZE_MSG_MESSAGE];
     
-    if(writeCom(server_fd, COMMAND_POST_MSG) == -1)
+    ret = writeCom(server_fd, COMMAND_POST_MSG); 
+    if (ret == -1 && errno == EPIPE)
     {
-        errFunction("Write error on the server socket"); 
+    	close(server_fd); 
+        errFunction("Connection closed by server"); 
+    }
+    if( ret == -1)
+    {
+    	close(server_fd); 
+        errFunction("Error writing to server_fd");
     }
     
     printf("Enter the object of the message (maximum 64 characters):\n"); 
@@ -283,15 +361,21 @@ static void postMessageFunction(int server_fd)
     padBuff(textBuffer, strlen(textBuffer), SIZE_TEXT); 
     buildMessage(msgMessage, objBuffer, textBuffer, SIZE_MSG_MESSAGE); 
 
-    if((ret = writeBuffSocket(server_fd, msgMessage, SIZE_MSG_MESSAGE)) == -1)
+    ret = writeBuffSocket(server_fd, msgMessage, SIZE_MSG_MESSAGE); 
+    if( ret == -1 && errno == EPIPE)
     {
-        errFunction("Write error on the server socket"); 
+        errFunction("Connection closed by the server"); 
+    }
+    if(ret == -1)
+    {
+    	errFunction("Write error on the server socket"); 
     }
 
     ret = readCom(server_fd, &c); 
 
     if(ret == 0){
-        errFunction("Connection closed by the peer"); 
+    	close(server_fd); 
+        errFunction("Connection closed by the server"); 
     } else if(ret == -1){
         errFunction("Read error from the server socket"); 
     }    
@@ -306,12 +390,19 @@ static void postMessageFunction(int server_fd)
             fflush(stdout);
             break; 
         default:
-            if(writeCom(server_fd, COMMAND_CLOSE) == -1)
+            ret = writeCom(server_fd, COMMAND_CLOSE);
+            if (ret == -1 && errno == EPIPE)
             {
-                errFunction("Write error on the server socket"); 
+                close(server_fd); 
+                errFunction("Connection closed by server"); 
+            }
+            if( ret == -1)
+            {
+            	close(server_fd); 
+                errFunction("Error writing to server_fd");
             }
             close(server_fd); 
-            exit(EXIT_SUCCESS); 
+            errFunction("Command not recognized");
     }
 }
 
@@ -380,27 +471,33 @@ static void viewMessageFunction(int server_fd)
     n = numberMessages(server_fd);
     if (n == -1)
     {
-        errFunction("Error converting the number of messages on the board");
+    	errFunction("Error converting the number of messages on the board");
     }
 
     for (int i = 0; i < n; i++)
     {
-        if (readBuffSocket(server_fd, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE) == -1)
+        ret = readBuffSocket(server_fd, msgMessage, SIZE_PERSONAL_COMPLETE_MESSAGE); 
+        if(ret == -1)
         {
             errFunction("Error reading a message from the board");
+        }
+        else if(ret == 0)
+        {
+       	    close(server_fd); 
+            errFunction("Connection closed by server");
         }
         printPersonalMessage(msgMessage);
     }
 
     ret = readCom(server_fd, &c);
-
     if (ret == 0)
     {
-        errFunction("Connection closed by peer");
+    	close(server_fd); 
+        errFunction("Connection closed by server");
     }
     else if (ret == -1)
     {
-        errFunction("Error reading from server_fd");
+        errFunction("Error reading from socket");
     }
 
     switch (c)
@@ -408,12 +505,20 @@ static void viewMessageFunction(int server_fd)
         case COMMAND_SUCCESS:
             break;
         default:
-            if (writeCom(server_fd, COMMAND_CLOSE) == -1)
+            ret = writeCom(server_fd, COMMAND_CLOSE); 
+            if (ret == -1 && errno == EPIPE)
             {
+                close(server_fd); 
+                errFunction("Connection closed by server"); 
+            }
+            if( ret == -1)
+            {
+            	close(server_fd); 
                 errFunction("Error writing to server_fd");
             }
-            close(server_fd);
-            exit(EXIT_SUCCESS);
+            close(server_fd); 
+            errFunction("Command not recognized");
+
     }
 }
 
@@ -427,34 +532,46 @@ static void viewAllMessageFunction(int server_fd)
     char msgMessage[SIZE_GENERIC_COMPLETE_MESSAGE];
     int n;
 
-    if (writeCom(server_fd, COMMAND_VIEW_ALL_MSG) == -1)
+    ret = writeCom(server_fd, COMMAND_VIEW_ALL_MSG); 
+    if (ret == -1 && errno == EPIPE)
     {
-        errFunction("Error writing to server_fd");
+    	close(server_fd); 
+        errFunction("Connection closed by server"); 
     }
-
+    if ( ret == -1)
+    {
+    	close(server_fd);
+    	errFunction("Error writing to server_fd");
+    }
     n = numberMessages(server_fd);
 
     for (int i = 0; i < n; i++)
     {
-        if (readBuffSocket(server_fd, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE) == -1)
+        ret = readBuffSocket(server_fd, msgMessage, SIZE_GENERIC_COMPLETE_MESSAGE); 
+        if(ret == -1)
         {
             errFunction("Error reading a message from the board");
-        }
+        }else if (ret == 0)
+        {
+    	    close(server_fd); 
+            errFunction("Connection closed by server");
+  	}
         printGenericMessage(msgMessage);
     }
 
     if (readCom(server_fd, &c) == -1)
     {
-        errFunction("Error writing to server_fd");
+        errFunction("Error writing to the server socket");
     }
 
     if (ret == 0)
     {
-        errFunction("Connection closed by peer");
+    	close(server_fd); 
+        errFunction("Connection closed by server");
     }
     else if (ret == -1)
     {
-        errFunction("Error reading from server_fd");
+        errFunction("Error reading from the server socket");
     }
 
     switch (c)
@@ -462,12 +579,19 @@ static void viewAllMessageFunction(int server_fd)
         case COMMAND_SUCCESS:
             break;
         default:
-            if (writeCom(server_fd, COMMAND_CLOSE) == -1)
+            ret = writeCom(server_fd, COMMAND_CLOSE); 
+            if (ret == -1 && errno == EPIPE)
             {
+            	close(server_fd); 
+                errFunction("Connection closed by server"); 
+            }
+            if ( ret == -1)
+            {
+            	close(server_fd); 
                 errFunction("Error writing to server_fd");
             }
-            close(server_fd);
-            exit(EXIT_SUCCESS);
+            close(server_fd); 
+            errFunction("Command not recognized");
     }
 }
 
@@ -485,11 +609,12 @@ void clientFunc(int server_fd)
 
     if (ret == 0)
     {
+    	close(server_fd); 
         errFunction("Connection closed by the server");
     }
     else if (ret == -1)
     {
-        errFunction("Error reading from server_fd");
+        errFunction("Error reading from the server socket");
     }
 
     if (c == COMMAND_AUTH)
@@ -498,7 +623,6 @@ void clientFunc(int server_fd)
     }
     else
     {
-        printf("Used code is %d\n", COMMAND_AUTH);
         errFunction("Communication error");
     }
 
@@ -528,11 +652,18 @@ void clientFunc(int server_fd)
                 delMessageFunction(server_fd);
                 break;
             case '5':
-                if (writeCom(server_fd, COMMAND_CLOSE) == -1)
+            	ret = writeCom(server_fd, COMMAND_CLOSE); 
+                if (ret == -1 && errno == EPIPE)
                 {
+                    close(server_fd); 
+                    errFunction("Connection closed by server"); 
+                }
+                if ( ret == -1)
+                {
+                    close(server_fd); 
                     errFunction("Error writing to server_fd");
                 }
-                exit(EXIT_SUCCESS);
+                exit(EXIT_SUCCESS); 
             default:
                 printf("Unrecognized menu option");
         }

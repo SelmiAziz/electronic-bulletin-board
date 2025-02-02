@@ -1,3 +1,6 @@
+#ifndef FILE_MESSAGE_LIB_H
+#define FILE_MESSAGE_LIB_H
+
 void delMessageFile(char *file, char *idMessage);
 
 void fillUser(char *bufferLine, char *buffUsername, char *buffPassword);
@@ -8,3 +11,6 @@ void writeMessageFile(char*buffUser, char *buffObj, char *buffText, char *buffId
 
 void copyFile(const char* fileSource, const char* fileDestination); 
 void eliminateZeroPresence(char *file, char *fileShadow);
+
+
+#endif

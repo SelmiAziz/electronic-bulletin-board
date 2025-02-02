@@ -15,27 +15,53 @@
 #include "../include/helper.h"
 #include "../include/fileMessageLib.h"
 #include "../include/functionServer.h"
+#include "../include/mutexLib.h"
+#include "../include/serverConfig.h"
 
-int receiveTimeout(int socket){
+
+
+int fd[MAX_NUM_THREADS]; 
+
+
+int receiveTimeout(int socket)
+{
 	struct timeval timeout; 
+	
 	timeout.tv_sec = TIME_OUT; 
 	timeout.tv_usec = 0; 
-	
 	
 	return setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
 
 }
 
 
-void funzionePeriodica(int signum) {
+void initTimer(struct itimerval timer)
+{
+    	timer.it_value.tv_sec = CLEAN_TIME;     
+    	timer.it_value.tv_usec = 0;
+    	timer.it_interval.tv_sec = CLEAN_TIME; 
+    	timer.it_interval.tv_usec = 0;
 
+
+}
+
+void handlerSigint(int signum)
+{
+	for(int j = 0; j<numThreads; j++){
+		close(fd[j]);
+	}
+	exit(EXIT_SUCCESS); 
+}
+
+void periodicFunction(int signum) {
+   lockMutex(mutexFileMessages); 
    eliminateZeroPresence(MESSAGES_FILE,SHADOW_FILE); 
    copyFile(SHADOW_FILE,MESSAGES_FILE); 
+   unlockMutex(mutexFileMessages); 
 }
 
 
 
-//PARTE INERENTE AI FILE
 void fillUsersFromFile(BulletinBoard *myBoard, char *file)
 {
 	char buffUser[SIZE_USERNAME]; 
@@ -44,22 +70,15 @@ void fillUsersFromFile(BulletinBoard *myBoard, char *file)
 	
 	FILE *myFile = fopen(file, "r"); 
 	if(myFile == NULL){
-		fprintf(stderr, "Error opening file!"); 
-		exit(EXIT_FAILURE); 
+		errFunction("Error opening file"); 
 	
 	}
 	while(fgets(buff, 1024, myFile)){
 		fillUser(buff,buffUser, buffPass);
-		printf("Sto prendendo %s %s\n", buffUser, buffPass); 
-		fflush(stdout);
 		addUser(myBoard, buffUser, buffPass); 
 	} 
 	fclose(myFile); 
 }
-
-//STO PER USARE UNA FUNZIONE CHE IN REALTÀ USA ANCHE FILEMESSAGELIB.C RIMETTERE TUTTO APPOSTO 
-
-
 
 void fillMessagesFromFile(BulletinBoard *myBoard, char *file)
 {
@@ -75,108 +94,121 @@ void fillMessagesFromFile(BulletinBoard *myBoard, char *file)
  	FILE *myFile = fopen(file, "r"); 
  	if(myFile == NULL
  	){
- 		fprintf(stderr, "Error opening file"); 
- 		exit(EXIT_FAILURE); 
+ 		errFunction("Error opening file"); 
  	}
  	
 	while(fgets(buff, SIZE, myFile))
 	{
 		fillMsg(buff, buffUser, buffObj, buffText, buffIdMessage, &v);
 		if(v!= 0){
-			//il nome non mi piace
 			addMessageUser(myBoard, buffUser, buffObj, buffText, buffIdMessage); 
 			numTemp = convertStringToNumber(buffIdMessage); 
 			if(numTemp > myBoard->idCount) myBoard->idCount = numTemp; 
 		}
 	}
 	fclose(myFile); 
-
-
-
 }
 
-int main(int arcv, char *argv[]){
-	int listSocket; 
-	int connSocket; 
-	struct sockaddr_in serverAddr; 
-	struct sockaddr_in clientAddr;  
-	pthread_t pid; 
-	int s_size; //scoprire che roba è questa
-	ThreadData *tData; 
-	int port = 2500; 
-	//si dovrebbe specificare tutto in un file
-	char *fileUsers = USERS_FILE; 
-	char *fileMessages = MESSAGES_FILE;
-	BulletinBoard *myBoard = createBulletinBoard(); 
-	
-	
-	//devo trovare il modo di specificare il file che intendo usare
-	//le modfiche che sto apportando sono in questa parte
-	fillUsersFromFile(myBoard,fileUsers); 
-	fillMessagesFromFile(myBoard,fileMessages);
-	
-	
-	//STO FISSANDO UN TIMERR PER FAR PULIRE IL FILE OGNI 5 Secondi Usando SIGALARM
-	
-	struct itimerval timer;
 
-    // Configura il timer: intervallo di 5 secondi
-    //DA METTERE DELLE FLAG
-    timer.it_value.tv_sec = 5;     // Primo trigger dopo 5 secondi
-    timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = 5; // Ripetizione ogni 5 secondi
-    timer.it_interval.tv_usec = 0;
 
-    // Associa il segnale SIGALRM alla funzionePeriodica
-    signal(SIGALRM, funzionePeriodica);
+int main(int argc, char *argv[]) {  
+    struct itimerval timer;  
+    struct sigaction sa_int, sa_alarm, sa_ignore;  
 
-    // Avvia il timer
-    setitimer(ITIMER_REAL, &timer, NULL);
-	
+    pthread_t pid; 
 
-	
-	
-	if( (listSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-		errFunction("Errore nella creazione della socket"); 
-	}
+    int listSocket;  
+    int connSocket;  
+    struct sockaddr_in serverAddr;  
+    struct sockaddr_in clientAddr;  
+    int s_size;  
+    ThreadData *tData;  
+    int port = 2500;  
 
-	memset(&serverAddr, 0, sizeof(serverAddr)); 
-	serverAddr.sin_family = AF_INET; 
-	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY); 
-	serverAddr.sin_port = htons(port); 
+    char *fileUsers = USERS_FILE;  
+    char *fileMessages = MESSAGES_FILE;  
+    
+  
 
-	if(bind(listSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0){
-		errFunction("Errore nella bind");
-	}
+    sa_int.sa_handler = handlerSigint;  
+    sa_int.sa_flags = 0;  
+    if( sigaction(SIGINT, &sa_int, NULL) == -1) {  
+        errFunction("Error in setting sigaction");  
+    }  
 
-	if(listen(listSocket, LISTEN) < 0){
-		errFunction("Errore nella listen"); 
-	}
-	
-	s_size = sizeof(struct sockaddr_in); 
-	
-	while(1){
-		if((connSocket = accept(listSocket, (struct sockaddr *)&clientAddr, &s_size))< 0){
-			errFunction("Errore in accpet"); 
-		}	
-		
-		tData = malloc(sizeof(tData)); 
-		if(tData == NULL){
-			errFunction("Errore in malloc"); 
-		}
-		
-		if(receiveTimeout(connSocket) < 0){
-			errFunction("Errore in timeout"); 
-		}
-		
-		tData->socket = connSocket;
-		tData->myBoard = myBoard;
-		
-		//servirebbe prima fare una sorta di detach modificando gli attributi del thread
-		if(pthread_create(&pid, NULL, worker, (void*)tData)){
-			errFunction("Errore nella creazione del thread"); 
-		}	
-		
-	} 
-	return 0; 
+    sa_alarm.sa_handler = periodicFunction;  
+    sa_alarm.sa_flags = 0;    
+    if(sigaction(SIGALRM, &sa_alarm, NULL) == -1) {  
+        errFunction("Error in setting sigaction");  
+    }  
+
+    sa_ignore.sa_handler = SIG_IGN;  
+    if(sigaction(SIGPIPE, &sa_ignore, NULL) == -1) {  
+        errFunction("Error in setting sigaction");  
+    }  
+
+    // creation of the data structure representing the electronic bulletin board in memory  
+    BulletinBoard *myBoard = createBulletinBoard();  
+
+    // loading users and messages from the files  
+    fillUsersFromFile(myBoard, fileUsers);  
+    fillMessagesFromFile(myBoard, fileMessages);  
+
+    // initializing various mutexes  
+    initMutex(mutexFileUsers);  
+    initMutex(mutexFileMessages);  
+    initMutex(mutexBulletinBoard);  
+
+    // I AM SETTING A TIMER TO CLEAN THE FILE EVERY 5 Seconds Using SIGALRM  
+    initTimer(timer);  
+    // Start the timer  
+    setitimer(ITIMER_REAL, &timer, NULL);  
+
+    if( (listSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0){  
+        errFunction("Error in creating the socket");  
+    }  
+    memset(&serverAddr, 0, sizeof(serverAddr));  
+    serverAddr.sin_family = AF_INET;  
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);  
+    serverAddr.sin_port = htons(port);  
+    
+    if(bind(listSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0){  
+        errFunction("Error in bind");  
+    }  
+    if(listen(listSocket, LISTEN) < 0){  
+        errFunction("Error in listen");  
+    }  
+
+    s_size = sizeof(struct sockaddr_in);  
+
+    while(numThreads < MAX_NUM_THREADS){  
+        if((connSocket = accept(listSocket, (struct sockaddr *)&clientAddr, &s_size)) < 0 ){  
+            errFunction("Error in accept");  
+        }  
+
+        if(receiveTimeout(connSocket) < 0){  
+            errFunction("Error in timeout");  
+        }  
+        
+        tData = malloc(sizeof(tData));  
+        if(tData == NULL){  
+            errFunction("Error in malloc");  
+        }  
+
+
+        tData->socket = connSocket;  
+        tData->myBoard = myBoard;  
+
+        fd[numThreads] = connSocket; 
+        numThreads++;  
+
+        if(pthread_create(&pid, NULL, worker, (void*)tData)){  
+            errFunction("Error in creating the thread");  
+        }  
+
+
+    }  
+
+    return 0;  
 }
+

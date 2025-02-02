@@ -38,19 +38,19 @@ int writeBuffSocket(int socket, char *buffer, int len)
 //la funzione ritorna 0 canale chiuso
 //la funzione ritorna -1 errno uguale a EWOULDBLOCK oppure EAGAIN errore di timeout
 //deve essere sviluppata una funzione read per il client che non abbia Timeout
-int readTimeout(int fd, void *buffer, int total_bytes, int max_attempts)
+int readTimeout(int fd, void *buffer, int totalBytes, int maxAttempts)
 {
-    int bytes_read = 0;
+    int bytesRead = 0;
     int result;
     int attempts = 0;
 
-    while (bytes_read < total_bytes) {
-        result = read(fd, (char *)buffer + bytes_read, total_bytes - bytes_read);
+    while (bytesRead < totalBytes) {
+        result = read(fd, (char *)buffer + bytesRead, totalBytes - bytesRead);
 
         if (result < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
                 attempts++;
-                if (attempts == max_attempts) {
+                if (attempts == maxAttempts) {
                     return -1;
                 }
                 continue; 
@@ -60,21 +60,21 @@ int readTimeout(int fd, void *buffer, int total_bytes, int max_attempts)
             return 0; 
         }
 
-        bytes_read += result;
+        bytesRead += result;
     }
 
-    return bytes_read; 
+    return bytesRead; 
 }
 
 
-int readBuffSocket(int fd, void *buffer, int total_bytes)
+int readBuffSocket(int fd, void *buffer, int totalBytes)
 {
-    int bytes_read = 0;
+    int bytesRead = 0;
     int result;
     int attempts = 0;
 
-    while (bytes_read < total_bytes) {
-        result = read(fd, (char *)buffer + bytes_read, total_bytes - bytes_read);
+    while (bytesRead < totalBytes) {
+        result = read(fd, (char *)buffer + bytesRead, totalBytes - bytesRead);
 
         if (result < 0) {
             return -1; 
@@ -82,10 +82,10 @@ int readBuffSocket(int fd, void *buffer, int total_bytes)
             return 0; 
         }
 
-        bytes_read += result;
+        bytesRead += result;
     }
 
-    return bytes_read; 
+    return bytesRead; 
 }
 
 
