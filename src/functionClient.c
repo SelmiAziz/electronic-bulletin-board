@@ -126,7 +126,7 @@ static void subFunctionClient(int server_fd, char *username, char *password)
     
     while(1)
     {
-        printf("Enter a username with a length between 8 and 64 characters (inclusive)\n"); 
+        printf("Enter a username with a length between 4 and 64 characters (inclusive)\n"); 
         getValideUsername(username); 
         
         printf("Enter a password with a length between 8 and 64 characters (inclusive)\n"); 

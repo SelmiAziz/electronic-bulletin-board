@@ -75,7 +75,7 @@ void buildMessage(char *bMessage, char *s1, char *s2, int len)
 }
 
 int numberMessages(int socket)
-{
+{	
 	int ret, n; 
 	char numMsgBuff[SIZE_NUM_MSG+1];
 
@@ -92,11 +92,10 @@ int numberMessages(int socket)
 	extractField(numMsgBuff,numMsgBuff,0,SIZE_NUM_MSG); 
 	
 	
-	
 	n = strtol(numMsgBuff, NULL, 10);
 
 
-	if(n > 0) return n; 
+	if(n >= 0) return n; 
 	return -1; 
 
 }
