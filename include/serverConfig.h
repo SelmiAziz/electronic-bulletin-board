@@ -9,7 +9,7 @@
 #define MESSAGES_FILE "./data/data_messages.csv"
 #define SHADOW_FILE "./data/file_shadow.csv"
 #define MAX_NUM_THREADS 100
-#define CLEAN_TIME 100
+#define CLEAN_TIME 10
 
 extern int numThreads; 
 

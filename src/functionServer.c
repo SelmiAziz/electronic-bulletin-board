@@ -71,7 +71,6 @@ static int postMessageFunction(int client_fd, BulletinBoard *myBoard, char *user
     writeMessageFile(username, objBuffer, textBuffer, idMsgBuffer, MESSAGES_FILE); 
     unlockMutex(mutexFileMessages); 
 
-    printUserMessage(myBoard, username);  
 
     if (writeCom(client_fd, COMMAND_SUCCESS) == -1)
     {
