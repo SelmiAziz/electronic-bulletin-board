@@ -38,6 +38,7 @@ void fillMsg(char *buffLine, char *buffUsername, char *buffObject, char *buffTex
     char *token;
     int len;
 
+
     strncpy(buffTemp, buffLine, SIZE - 1);
     buffTemp[SIZE - 1] = '\0';
 
